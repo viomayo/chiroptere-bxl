@@ -170,6 +170,19 @@ export async function initSessionPoints(session: SessionData): Promise<PointData
   return points
 }
 
+export async function getAllPoints(): Promise<PointData[]> {
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_POINTS, 'readonly')
+    const req = tx.objectStore(STORE_POINTS).getAll()
+    req.onsuccess = () => {
+      const points = (req.result as Record<string, unknown>[]).map(hydratePoint)
+      resolve(points)
+    }
+    req.onerror = () => reject(req.error)
+  })
+}
+
 export async function updatePoint(point: PointData): Promise<void> {
   const db = await openDB()
   return new Promise((resolve, reject) => {

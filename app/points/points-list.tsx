@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { getSessions, initSessionPoints, type SessionData, type PointData } from '@/lib/idb'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { getSessions, getSessionById, initSessionPoints, type SessionData, type PointData } from '@/lib/idb'
 import { ChevronRight, Download } from 'lucide-react'
 
 type Statut = PointData['statut']
@@ -98,6 +98,8 @@ function exportGeoJSON(session: SessionData, points: PointData[]) {
 
 export default function PointsList() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const sessionId = searchParams.get('sessionId')
   const [session, setSession] = useState<SessionData | null>(null)
   const [points, setPoints] = useState<PointData[]>([])
   const [loading, setLoading] = useState(true)
@@ -105,24 +107,29 @@ export default function PointsList() {
   useEffect(() => {
     let active = true
     async function load() {
-      const sessions = await getSessions()
+      let target: SessionData | undefined
+      if (sessionId) {
+        target = await getSessionById(sessionId)
+      } else {
+        const sessions = await getSessions()
+        target = sessions.sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )[0]
+      }
       if (!active) return
-      if (sessions.length === 0) {
+      if (!target) {
         setLoading(false)
         return
       }
-      const latest = sessions.sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      )[0]
-      const pts = latest.nbPointsEcoute > 0 ? await initSessionPoints(latest) : []
+      const pts = target.nbPointsEcoute > 0 ? await initSessionPoints(target) : []
       if (!active) return
-      setSession(latest)
+      setSession(target)
       setPoints(pts)
       setLoading(false)
     }
     load()
     return () => { active = false }
-  }, [])
+  }, [sessionId])
 
   if (loading) {
     return (
