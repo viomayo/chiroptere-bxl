@@ -15,14 +15,14 @@ const STATUT_LABEL: Record<Statut, string> = {
 
 const STATUT_DOT: Record<Statut, string> = {
   non_demarre: 'bg-foreground/20',
-  en_cours: 'bg-amber-400',
-  termine: 'bg-emerald-400',
+  en_cours: 'bg-[#b87840]',
+  termine: 'bg-[#4d8c5c]',
 }
 
 const STATUT_TEXT: Record<Statut, string> = {
   non_demarre: 'text-foreground/35',
-  en_cours: 'text-amber-500',
-  termine: 'text-emerald-500',
+  en_cours: 'text-[#b87840]',
+  termine: 'text-[#4d8c5c]',
 }
 
 function formatTime(iso: string | null): string {

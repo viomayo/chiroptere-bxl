@@ -516,7 +516,7 @@ export default function CompteurScreen() {
 
           {finished && (
             <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500">
+              <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[#4d8c5c]/12 text-[#4d8c5c]">
                 Terminé
               </span>
               <button
