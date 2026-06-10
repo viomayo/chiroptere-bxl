@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Check } from 'lucide-react'
 import { saveSession, type SessionData } from '@/lib/idb'
 
@@ -59,6 +60,7 @@ const inputClass =
   'w-full rounded-lg border border-foreground/10 bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground/30'
 
 export default function SiteForm({ compteurPrincipal }: { compteurPrincipal: string }) {
+  const router = useRouter()
   const [typeSite, setTypeSite] = useState('')
   const [nomSite, setNomSite] = useState('')
   const [acronyme, setAcronyme] = useState('')
@@ -68,7 +70,6 @@ export default function SiteForm({ compteurPrincipal }: { compteurPrincipal: str
   const [nbPointsEcoute, setNbPointsEcoute] = useState<number | ''>('')
   const [detecteurs, setDetecteurs] = useState<string[]>([])
   const [commentaire, setCommentaire] = useState('')
-  const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
 
   function handleNomSiteChange(nom: string) {
@@ -105,8 +106,7 @@ export default function SiteForm({ compteurPrincipal }: { compteurPrincipal: str
 
     try {
       await saveSession(session)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
+      router.push('/points')
     } catch {
       setError('Erreur lors de la sauvegarde locale.')
     }
@@ -263,20 +263,9 @@ export default function SiteForm({ compteurPrincipal }: { compteurPrincipal: str
 
       <button
         type="submit"
-        className={`w-full flex items-center justify-center gap-2 rounded-lg py-3 text-sm font-medium transition-all active:scale-[0.99] cursor-pointer ${
-          saved
-            ? 'bg-foreground/10 text-foreground/60'
-            : 'bg-foreground text-background hover:bg-foreground/90'
-        }`}
+        className="w-full flex items-center justify-center gap-2 rounded-lg py-3 text-sm font-medium bg-foreground text-background hover:bg-foreground/90 transition-all active:scale-[0.99] cursor-pointer"
       >
-        {saved ? (
-          <>
-            <Check size={15} strokeWidth={2.5} />
-            Enregistré localement
-          </>
-        ) : (
-          'Enregistrer la session'
-        )}
+        Enregistrer la session
       </button>
     </form>
   )
