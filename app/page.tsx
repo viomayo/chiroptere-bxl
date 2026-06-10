@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import LogoutButton from './components/logout-button'
+import SubNavbar from './components/sub-navbar'
 import Image from 'next/image'
 
 export default async function Page() {
@@ -50,7 +51,9 @@ export default async function Page() {
         </nav>
       </header>
 
-      <main className="flex-1 flex items-center justify-center px-4">
+      <SubNavbar />
+
+      <main className="flex-1 flex items-center justify-center px-4 pb-16 lg:pb-0">
         <div className="text-center">
           <p className="text-foreground/40 text-sm">Bienvenue, {name.split(' ')[0]} !</p>
         </div>
