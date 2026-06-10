@@ -18,7 +18,7 @@ export default function AppShell({ name, avatar, children }: AppShellProps) {
             <div className="w-7 h-7 rounded-lg bg-foreground flex items-center justify-center">
               <span className="text-background text-xs font-bold">C</span>
             </div>
-            <span className="text-sm font-medium">Chiroptère</span>
+            <span className="text-sm font-medium">Chiroptère BXL</span>
           </Link>
 
           <div className="flex items-center gap-4">
