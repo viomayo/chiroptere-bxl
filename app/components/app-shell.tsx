@@ -1,19 +1,15 @@
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
-import LogoutButton from './components/logout-button'
-import SubNavbar from './components/sub-navbar'
 import Image from 'next/image'
+import LogoutButton from './logout-button'
+import SubNavbar from './sub-navbar'
 
-export default async function Page() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+interface AppShellProps {
+  name: string
+  avatar: string | null
+  children: React.ReactNode
+}
 
-  if (!user) redirect('/login')
-
-  const name: string = user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email ?? 'Utilisateur'
-  const avatar: string | null = user.user_metadata?.avatar_url ?? null
-
+export default function AppShell({ name, avatar, children }: AppShellProps) {
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <header className="border-b border-foreground/8 px-4 sm:px-6">
@@ -46,7 +42,6 @@ export default async function Page() {
             </div>
 
             <div className="w-px h-4 bg-foreground/10" />
-
             <LogoutButton />
           </div>
         </nav>
@@ -54,11 +49,7 @@ export default async function Page() {
 
       <SubNavbar />
 
-      <main className="flex-1 flex items-center justify-center px-4 pb-16 lg:pb-0">
-        <div className="text-center">
-          <p className="text-foreground/40 text-sm">Bienvenue, {name.split(' ')[0]} !</p>
-        </div>
-      </main>
+      {children}
     </div>
   )
 }
