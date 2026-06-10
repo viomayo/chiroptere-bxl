@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -15,6 +15,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Chiroptère BXL",
   description: "Suivi nocturne des chauves-souris à Bruxelles",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Chirop BXL",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0f0d0b",
 };
 
 export default function RootLayout({
