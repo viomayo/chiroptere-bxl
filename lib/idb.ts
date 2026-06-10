@@ -19,6 +19,23 @@ export interface SessionData {
   syncedAt: string | null
 }
 
+export interface SpeciesCount {
+  name: string
+  count: number
+}
+
+export interface GroupCount {
+  total: number
+  species: SpeciesCount[]
+}
+
+export interface PointCounts {
+  pipistrelles: GroupCount
+  murins: GroupCount
+  serotules: GroupCount
+  autres: GroupCount
+}
+
 export interface PointData {
   id: string
   sessionId: string
@@ -27,6 +44,13 @@ export interface PointData {
   heureFin: string | null
   nbEspeces: number
   statut: 'non_demarre' | 'en_cours' | 'termine'
+  counts: PointCounts
+  commentaire: string
+}
+
+export function defaultCounts(): PointCounts {
+  const empty = (): GroupCount => ({ total: 0, species: [] })
+  return { pipistrelles: empty(), murins: empty(), serotules: empty(), autres: empty() }
 }
 
 function openDB(): Promise<IDBDatabase> {
@@ -45,6 +69,20 @@ function openDB(): Promise<IDBDatabase> {
     req.onsuccess = (e) => resolve((e.target as IDBOpenDBRequest).result)
     req.onerror = () => reject(req.error)
   })
+}
+
+function hydratePoint(raw: Record<string, unknown>): PointData {
+  return {
+    id: raw.id as string,
+    sessionId: raw.sessionId as string,
+    numero: raw.numero as number,
+    heureDebut: (raw.heureDebut as string | null) ?? null,
+    heureFin: (raw.heureFin as string | null) ?? null,
+    nbEspeces: (raw.nbEspeces as number) ?? 0,
+    statut: (raw.statut as PointData['statut']) ?? 'non_demarre',
+    counts: (raw.counts as PointCounts) ?? defaultCounts(),
+    commentaire: (raw.commentaire as string) ?? '',
+  }
 }
 
 export async function saveSession(session: SessionData): Promise<void> {
@@ -67,13 +105,40 @@ export async function getSessions(): Promise<SessionData[]> {
   })
 }
 
+export async function getSessionById(id: string): Promise<SessionData | undefined> {
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_SESSIONS, 'readonly')
+    const req = tx.objectStore(STORE_SESSIONS).get(id)
+    req.onsuccess = () => resolve(req.result as SessionData | undefined)
+    req.onerror = () => reject(req.error)
+  })
+}
+
 export async function getPointsBySession(sessionId: string): Promise<PointData[]> {
   const db = await openDB()
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_POINTS, 'readonly')
     const req = tx.objectStore(STORE_POINTS).index('sessionId').getAll(sessionId)
-    req.onsuccess = () =>
-      resolve((req.result as PointData[]).sort((a, b) => a.numero - b.numero))
+    req.onsuccess = () => {
+      const points = (req.result as Record<string, unknown>[])
+        .map(hydratePoint)
+        .sort((a, b) => a.numero - b.numero)
+      resolve(points)
+    }
+    req.onerror = () => reject(req.error)
+  })
+}
+
+export async function getPointById(id: string): Promise<PointData | undefined> {
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_POINTS, 'readonly')
+    const req = tx.objectStore(STORE_POINTS).get(id)
+    req.onsuccess = () => {
+      const raw = req.result as Record<string, unknown> | undefined
+      resolve(raw ? hydratePoint(raw) : undefined)
+    }
     req.onerror = () => reject(req.error)
   })
 }
@@ -90,6 +155,8 @@ export async function initSessionPoints(session: SessionData): Promise<PointData
     heureFin: null,
     nbEspeces: 0,
     statut: 'non_demarre' as const,
+    counts: defaultCounts(),
+    commentaire: '',
   }))
 
   const db = await openDB()
