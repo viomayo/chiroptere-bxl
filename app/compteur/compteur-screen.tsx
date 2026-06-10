@@ -63,6 +63,15 @@ function formatHMS(d: Date) {
   return `${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`
 }
 
+function announce(text: string) {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return
+  window.speechSynthesis.cancel()
+  const u = new SpeechSynthesisUtterance(text)
+  u.lang = 'fr-FR'
+  u.rate = 0.95
+  window.speechSynthesis.speak(u)
+}
+
 // ── Group card ────────────────────────────────────────────────────────────────
 
 function GroupCard({
@@ -244,6 +253,7 @@ export default function CompteurScreen() {
           clearInterval(timerRef.current!)
           timerRef.current = null
           setFinished(true)
+          announce('Fin du point')
         } else {
           const newStart = new Date()
           currentTrancheRef.current = next
@@ -252,6 +262,7 @@ export default function CompteurScreen() {
           setCurrentTranche(next)
           setTrancheStartTime(newStart)
           setTrancheElapsed(0)
+          announce(`Tranche ${next}`)
         }
       }
     }, 1000)
@@ -286,6 +297,7 @@ export default function CompteurScreen() {
     trancheStartRef.current = now
     currentTrancheRef.current = 1
     trancheElapsedRef.current = 0
+    announce('Tranche 1')
     startInterval()
   }
 
