@@ -28,30 +28,25 @@ const GROUP_LABELS: Record<GroupKey, string> = {
 const SPECIES: Record<GroupKey, string[]> = {
   pipistrelles: [
     'Pip. commune',
+    'Pip. de Nathusius/Kuhl',
     'Pip. pygmée',
-    'Pip. de Nathusius',
-    'Pip. de Kuhl',
   ],
   murins: [
     'M. de Daubenton',
     'M. de Natterer',
-    'M. à moustaches',
-    'M. de Brandt',
-    'Grand Murin',
+    'M. museaux sombres',
+    'M. à oreilles échancrées',
+    'Grand Murin / M. de Bechstein',
   ],
   serotules: [
     'Sérotine commune',
-    'Grande Noctule',
     'Noctule de Leisler',
-    'Sérotine bicolore',
+    'Noctule commune',
   ],
   autres: [
-    'Barbastelle',
-    'Oreillard roux',
-    'Oreillard gris',
+    'Oreillard sp',
     'Grand Rhinolophe',
-    'Petit Rhinolophe',
-    'Molosse de Cestoni',
+    'Autres',
   ],
 }
 
