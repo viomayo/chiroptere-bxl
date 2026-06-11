@@ -55,22 +55,27 @@ export function defaultCounts(): PointCounts {
   return { pipistrelles: empty(), murins: empty(), serotules: empty(), autres: empty() }
 }
 
+let _db: Promise<IDBDatabase> | null = null
+
 function openDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION)
-    req.onupgradeneeded = (e) => {
-      const db = (e.target as IDBOpenDBRequest).result
-      if (!db.objectStoreNames.contains(STORE_SESSIONS)) {
-        db.createObjectStore(STORE_SESSIONS, { keyPath: 'id' })
+  if (!_db) {
+    _db = new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION)
+      req.onupgradeneeded = (e) => {
+        const db = (e.target as IDBOpenDBRequest).result
+        if (!db.objectStoreNames.contains(STORE_SESSIONS)) {
+          db.createObjectStore(STORE_SESSIONS, { keyPath: 'id' })
+        }
+        if (!db.objectStoreNames.contains(STORE_POINTS)) {
+          const store = db.createObjectStore(STORE_POINTS, { keyPath: 'id' })
+          store.createIndex('sessionId', 'sessionId', { unique: false })
+        }
       }
-      if (!db.objectStoreNames.contains(STORE_POINTS)) {
-        const store = db.createObjectStore(STORE_POINTS, { keyPath: 'id' })
-        store.createIndex('sessionId', 'sessionId', { unique: false })
-      }
-    }
-    req.onsuccess = (e) => resolve((e.target as IDBOpenDBRequest).result)
-    req.onerror = () => reject(req.error)
-  })
+      req.onsuccess = (e) => resolve((e.target as IDBOpenDBRequest).result)
+      req.onerror = () => { _db = null; reject(req.error) }
+    })
+  }
+  return _db
 }
 
 function hydrateSpeciesCount(raw: unknown): SpeciesCount {
