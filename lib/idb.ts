@@ -38,6 +38,17 @@ export interface PointCounts {
   autres: GroupCount
 }
 
+export interface PointTimerState {
+  started: boolean
+  paused: boolean
+  finished: boolean
+  currentTranche: number
+  trancheElapsed: number
+  pointStartTime: string | null
+  trancheStartTime: string | null
+  updatedAt: string
+}
+
 export interface PointData {
   id: string
   sessionId: string
@@ -48,6 +59,7 @@ export interface PointData {
   statut: 'non_demarre' | 'en_cours' | 'termine'
   counts: PointCounts
   commentaire: string
+  timerState: PointTimerState | null
 }
 
 export function defaultCounts(): PointCounts {
@@ -100,6 +112,7 @@ function hydrateGroupCount(raw: unknown): GroupCount {
 
 function hydratePoint(raw: Record<string, unknown>): PointData {
   const rc = raw.counts as Record<string, unknown> | undefined
+  const timerState = raw.timerState as PointTimerState | null | undefined
   const counts: PointCounts = rc ? {
     pipistrelles: hydrateGroupCount(rc.pipistrelles),
     murins: hydrateGroupCount(rc.murins),
@@ -116,6 +129,7 @@ function hydratePoint(raw: Record<string, unknown>): PointData {
     statut: (raw.statut as PointData['statut']) ?? 'non_demarre',
     counts,
     commentaire: (raw.commentaire as string) ?? '',
+    timerState: timerState ?? null,
   }
 }
 
@@ -191,6 +205,7 @@ export async function initSessionPoints(session: SessionData): Promise<PointData
     statut: 'non_demarre' as const,
     counts: defaultCounts(),
     commentaire: '',
+    timerState: null,
   }))
 
   const db = await openDB()

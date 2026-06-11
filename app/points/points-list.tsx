@@ -6,6 +6,16 @@ import { getSessions, getSessionById, initSessionPoints, type SessionData, type 
 import { ChevronRight, Download } from 'lucide-react'
 
 type Statut = PointData['statut']
+type GroupKey = keyof PointCounts
+
+const GROUP_KEYS: GroupKey[] = ['pipistrelles', 'murins', 'serotules', 'autres']
+
+const GROUP_LABELS: Record<GroupKey, string> = {
+  pipistrelles: 'Pipistrelles',
+  murins: 'Murins',
+  serotules: 'Sérotules',
+  autres: 'Autres',
+}
 
 const STATUT_LABEL: Record<Statut, string> = {
   non_demarre: 'Non démarré',
@@ -50,28 +60,88 @@ function downloadBlob(content: string, filename: string, mime: string) {
   URL.revokeObjectURL(url)
 }
 
+function csvCell(value: string | number | null | undefined): string {
+  const text = value == null ? '' : String(value)
+  if (!/[",\n\r]/.test(text)) return text
+  return `"${text.replaceAll('"', '""')}"`
+}
+
+function tranches(value: number[]): string {
+  return value.join('|')
+}
+
 function exportCSV(session: SessionData, points: PointData[]) {
   const header = [
-    'session_id', 'site_nom', 'site_acronyme', 'type_site',
-    'debut_session', 'fin_session', 'point_numero',
-    'heure_debut', 'heure_fin', 'nb_especes', 'statut',
+    'session_id',
+    'site_nom',
+    'site_acronyme',
+    'type_site',
+    'debut_session',
+    'fin_session',
+    'compteur_principal',
+    'autres_compteurs',
+    'detecteurs',
+    'point_numero',
+    'heure_debut',
+    'heure_fin',
+    'nb_especes',
+    'statut',
+    'point_commentaire',
+    'niveau',
+    'groupe',
+    'espece',
+    'total',
+    'tranches',
   ].join(',')
 
-  const rows = points.map((p) =>
-    [
+  const rows = points.flatMap((p) => {
+    const base = [
       session.id,
-      `"${session.nomSite}"`,
+      session.nomSite,
       session.acronyme,
-      `"${session.typeSite}"`,
+      session.typeSite,
       session.debutSession,
       session.finSession,
+      session.compteurPrincipal,
+      session.autresCompteurs,
+      session.detecteurs.join('|'),
       p.numero,
-      p.heureDebut ?? '',
-      p.heureFin ?? '',
+      p.heureDebut,
+      p.heureFin,
       p.nbEspeces,
       p.statut,
-    ].join(',')
-  )
+      p.commentaire,
+    ]
+
+    const observationRows: string[] = []
+    for (const group of GROUP_KEYS) {
+      const groupCount = p.counts[group]
+      if (groupCount.total > 0) {
+        observationRows.push(
+          [...base, 'groupe', GROUP_LABELS[group], '', groupCount.total, tranches(groupCount.trancheHistory)]
+            .map(csvCell)
+            .join(',')
+        )
+      }
+
+      for (const species of groupCount.species) {
+        if (species.count <= 0) continue
+        observationRows.push(
+          [...base, 'espece', GROUP_LABELS[group], species.name, species.count, tranches(species.trancheHistory)]
+            .map(csvCell)
+            .join(',')
+        )
+      }
+    }
+
+    if (observationRows.length > 0) return observationRows
+
+    return [
+      [...base, 'point', '', '', 0, '']
+        .map(csvCell)
+        .join(','),
+    ]
+  })
 
   downloadBlob(
     [header, ...rows].join('\n'),
@@ -80,28 +150,13 @@ function exportCSV(session: SessionData, points: PointData[]) {
   )
 }
 
-function exportGeoJSON(session: SessionData, points: PointData[]) {
-  const features = points.map((p) => ({
-    type: 'Feature',
-    geometry: null,
-    properties: {
-      session_id: session.id,
-      site_nom: session.nomSite,
-      site_acronyme: session.acronyme,
-      type_site: session.typeSite,
-      point_numero: p.numero,
-      point_label: `${session.acronyme}-${String(p.numero).padStart(2, '0')}`,
-      heure_debut: p.heureDebut,
-      heure_fin: p.heureFin,
-      nb_especes: p.nbEspeces,
-      statut: p.statut,
-    },
-  }))
+function exportJSON(session: SessionData, points: PointData[]) {
+  const exportedAt = new Date().toISOString()
 
   downloadBlob(
-    JSON.stringify({ type: 'FeatureCollection', features }, null, 2),
-    `${session.acronyme}-session.geojson`,
-    'application/geo+json'
+    JSON.stringify({ exportedAt, session, points }, null, 2),
+    `${session.acronyme}-session.json`,
+    'application/json'
   )
 }
 
@@ -166,7 +221,7 @@ export default function PointsList() {
     return (
       <div className="flex-1 flex items-center justify-center px-6 text-center">
         <p className="text-sm text-foreground/50">
-          Aucun point d'écoute défini pour cette session.
+          Aucun point d&apos;écoute défini pour cette session.
         </p>
       </div>
     )
@@ -233,11 +288,11 @@ export default function PointsList() {
         </button>
         <button
           type="button"
-          onClick={() => exportGeoJSON(session, points)}
+          onClick={() => exportJSON(session, points)}
           className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-foreground/10 px-4 py-2.5 text-xs font-medium text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80 transition-colors cursor-pointer"
         >
           <Download size={13} />
-          Exporter GeoJSON
+          Exporter JSON
         </button>
       </div>
     </div>

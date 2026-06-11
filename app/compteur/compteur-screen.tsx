@@ -11,6 +11,7 @@ import {
   type PointData,
   type PointCounts,
   type GroupCount,
+  type PointTimerState,
   type SessionData,
 } from '@/lib/idb'
 import { getSiteConfig, type SiteTypeConfig } from '@/lib/site-config'
@@ -24,6 +25,8 @@ const GROUP_LABELS: Record<GroupKey, string> = {
   serotules: 'Sérotules',
   autres: 'Autres',
 }
+
+const GROUP_KEYS: GroupKey[] = ['pipistrelles', 'murins', 'serotules', 'autres']
 
 const SPECIES: Record<GroupKey, string[]> = {
   pipistrelles: [
@@ -65,6 +68,43 @@ function announce(text: string) {
   u.lang = 'fr-FR'
   u.rate = 0.95
   window.speechSynthesis.speak(u)
+}
+
+function countSpecies(counts: PointCounts): number {
+  return (
+    GROUP_KEYS.reduce((acc, g) => acc + counts[g].species.filter((s) => s.count > 0).length, 0) ||
+    GROUP_KEYS.filter((g) => counts[g].total > 0).length
+  )
+}
+
+function buildTimerState({
+  started,
+  paused,
+  finished,
+  currentTranche,
+  trancheElapsed,
+  pointStartTime,
+  trancheStartTime,
+}: {
+  started: boolean
+  paused: boolean
+  finished: boolean
+  currentTranche: number
+  trancheElapsed: number
+  pointStartTime: Date | null
+  trancheStartTime: Date | null
+}): PointTimerState | null {
+  if (!started) return null
+  return {
+    started,
+    paused,
+    finished,
+    currentTranche,
+    trancheElapsed,
+    pointStartTime: pointStartTime?.toISOString() ?? null,
+    trancheStartTime: trancheStartTime?.toISOString() ?? null,
+    updatedAt: new Date().toISOString(),
+  }
 }
 
 // ── Tranche dots ──────────────────────────────────────────────────────────────
@@ -299,7 +339,30 @@ export default function CompteurScreen() {
       configRef.current = cfg
       setCounts(pt.counts)
       setCommentaire(pt.commentaire)
-      if (pt.statut === 'termine') { setFinished(true); setStarted(true) }
+      if (pt.timerState) {
+        const start = pt.timerState.pointStartTime ? new Date(pt.timerState.pointStartTime) : null
+        const trancheStart = pt.timerState.trancheStartTime ? new Date(pt.timerState.trancheStartTime) : null
+        setStarted(pt.timerState.started)
+        setPaused(pt.statut === 'en_cours' ? true : pt.timerState.paused)
+        setFinished(pt.timerState.finished || pt.statut === 'termine')
+        setCurrentTranche(pt.timerState.currentTranche)
+        setTrancheElapsed(pt.timerState.trancheElapsed)
+        setPointStartTime(start)
+        setTrancheStartTime(trancheStart)
+        currentTrancheRef.current = pt.timerState.currentTranche
+        trancheElapsedRef.current = pt.timerState.trancheElapsed
+        trancheStartRef.current = trancheStart
+      } else if (pt.statut === 'termine') {
+        setFinished(true)
+        setStarted(true)
+      } else if (pt.statut === 'en_cours') {
+        const start = pt.heureDebut ? new Date(pt.heureDebut) : null
+        setStarted(true)
+        setPaused(true)
+        setPointStartTime(start)
+        setTrancheStartTime(start)
+        trancheStartRef.current = start
+      }
       setLoading(false)
     }
     load()
@@ -312,6 +375,45 @@ export default function CompteurScreen() {
     if (timerRef.current) clearInterval(timerRef.current)
     if (countdownRef.current) clearInterval(countdownRef.current)
   }, [])
+
+  useEffect(() => {
+    if (loading || !point) return
+
+    const timerState = buildTimerState({
+      started,
+      paused,
+      finished,
+      currentTranche,
+      trancheElapsed,
+      pointStartTime,
+      trancheStartTime,
+    })
+    const draft: PointData = {
+      ...point,
+      counts,
+      commentaire,
+      nbEspeces: countSpecies(counts),
+      timerState,
+    }
+
+    const save = window.setTimeout(() => {
+      void updatePoint(draft)
+    }, 500)
+
+    return () => window.clearTimeout(save)
+  }, [
+    loading,
+    point,
+    counts,
+    commentaire,
+    started,
+    paused,
+    finished,
+    currentTranche,
+    trancheElapsed,
+    pointStartTime,
+    trancheStartTime,
+  ])
 
   function startInterval() {
     timerRef.current = setInterval(() => {
@@ -358,7 +460,21 @@ export default function CompteurScreen() {
     })
 
     const now = new Date()
-    const updated: PointData = { ...point, heureDebut: now.toISOString(), statut: 'en_cours' }
+    const updated: PointData = {
+      ...point,
+      heureDebut: now.toISOString(),
+      statut: 'en_cours',
+      timerState: {
+        started: true,
+        paused: false,
+        finished: false,
+        currentTranche: 1,
+        trancheElapsed: 0,
+        pointStartTime: now.toISOString(),
+        trancheStartTime: now.toISOString(),
+        updatedAt: now.toISOString(),
+      },
+    }
     await updatePoint(updated)
     setPoint(updated)
 
@@ -387,9 +503,21 @@ export default function CompteurScreen() {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
     setCountdown(null)
     if (point) {
-      const updated: PointData = { ...point, heureDebut: null, statut: 'non_demarre' }
+      const emptyCounts = defaultCounts()
+      const updated: PointData = {
+        ...point,
+        heureDebut: null,
+        heureFin: null,
+        nbEspeces: 0,
+        statut: 'non_demarre',
+        counts: emptyCounts,
+        commentaire: '',
+        timerState: null,
+      }
       await updatePoint(updated)
       setPoint(updated)
+      setCounts(emptyCounts)
+      setCommentaire('')
     }
     setStarted(false)
     setPaused(false)
@@ -401,7 +529,6 @@ export default function CompteurScreen() {
     currentTrancheRef.current = 1
     trancheElapsedRef.current = 0
     trancheStartRef.current = null
-    setCounts(defaultCounts())
     setExpandedGroups(new Set())
   }
 
@@ -471,7 +598,9 @@ export default function CompteurScreen() {
       const existing = g.species.find((s) => s.name === sp)
       if (!existing || existing.count === 0) return prev
       const species = g.species.map((s) =>
-        s.name === sp ? { ...s, count: s.count - 1 } : s
+        s.name === sp
+          ? { ...s, count: s.count - 1, trancheHistory: s.trancheHistory.slice(0, -1) }
+          : s
       )
       return { ...prev, [group]: { ...g, species } }
     })
@@ -497,10 +626,7 @@ export default function CompteurScreen() {
     if (!point) return
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
     const now = new Date()
-    const groups: GroupKey[] = ['pipistrelles', 'murins', 'serotules', 'autres']
-    const nbEspeces =
-      groups.reduce((acc, g) => acc + counts[g].species.filter((s) => s.count > 0).length, 0) ||
-      groups.filter((g) => counts[g].total > 0).length
+    const nbEspeces = countSpecies(counts)
     const updated: PointData = {
       ...point,
       heureDebut: pointStartTime?.toISOString() ?? point.heureDebut,
@@ -509,6 +635,15 @@ export default function CompteurScreen() {
       statut: 'termine',
       counts,
       commentaire,
+      timerState: buildTimerState({
+        started: true,
+        paused: false,
+        finished: true,
+        currentTranche: config.nbTranches,
+        trancheElapsed: config.trancheDurationSec,
+        pointStartTime,
+        trancheStartTime,
+      }),
     }
     await updatePoint(updated)
     const allPoints = await getPointsBySession(point.sessionId)
@@ -527,12 +662,14 @@ export default function CompteurScreen() {
       : '—'
   const progress = (trancheElapsed / config.trancheDurationSec) * 100
 
-  const groups: GroupKey[] = ['pipistrelles', 'murins', 'serotules', 'autres']
-
   function toggleGroup(group: GroupKey) {
     setExpandedGroups((prev) => {
       const next = new Set(prev)
-      next.has(group) ? next.delete(group) : next.add(group)
+      if (next.has(group)) {
+        next.delete(group)
+      } else {
+        next.add(group)
+      }
       return next
     })
   }
@@ -678,7 +815,7 @@ export default function CompteurScreen() {
 
       {/* ── Group cards ── */}
       <div className="grid grid-cols-2 gap-3 items-start">
-        {groups.map((group) => {
+        {GROUP_KEYS.map((group) => {
           const canAdd =
             started && (finished || !counts[group].trancheHistory.includes(currentTranche))
           return (
@@ -699,7 +836,7 @@ export default function CompteurScreen() {
       </div>
 
       {/* ── Species detail cards ── */}
-      {groups.filter((g) => expandedGroups.has(g)).map((group) => (
+      {GROUP_KEYS.filter((g) => expandedGroups.has(g)).map((group) => (
         <SpeciesDetailCard
           key={group}
           groupKey={group}

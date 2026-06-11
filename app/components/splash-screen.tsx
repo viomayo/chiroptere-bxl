@@ -7,9 +7,12 @@ export default function SplashScreen() {
   const [hidden, setHidden] = useState(false)
 
   useEffect(() => {
-    setHiding(true)
-    const t = setTimeout(() => setHidden(true), 600)
-    return () => clearTimeout(t)
+    const frame = requestAnimationFrame(() => setHiding(true))
+    const timeout = setTimeout(() => setHidden(true), 650)
+    return () => {
+      cancelAnimationFrame(frame)
+      clearTimeout(timeout)
+    }
   }, [])
 
   if (hidden) return null
