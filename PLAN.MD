@@ -1,82 +1,36 @@
-# Chiroptère BXL — Implementation Plan
+# Chiroptère BXL — Plan
 
-## Goal
+## Objectif
 
-Build a simple Next.js application for bat monitoring.
+Transformer le prototype local-first actuel en application de terrain fiable, synchronisée et testée.
 
-The app must allow users to:
-- create monitoring sites;
-- create monitoring sessions;
-- count bat contacts by group and species;
-- use a timer with intervals;
-- save data locally when offline;
-- export observations as CSV and JSON.
+## Phase 1 — Stabiliser l'application locale
 
-## Constraints
+- Ajouter des tests ciblés pour IndexedDB, la persistance du compteur, la remise à zéro et les exports.
+- Renforcer la validation du formulaire de session.
+- Vérifier le comportement mobile, notamment la synthèse vocale sur iOS Safari.
 
-- Keep the architecture simple.
-- Use Next.js App Router.
-- Use Supabase for auth and database.
-- Use Server Components by default.
-- Use Client Components only for interactive screens.
-- Do not add unnecessary abstractions.
-- Do not add admin, roles, emails, maps or realtime in V1.
+## Phase 2 — Persistance Supabase
 
-## Pages
+- Créer de vraies migrations pour les sites, sessions, points, observations et espèces de référence.
+- Ajouter des politiques RLS limitées aux utilisateurs authentifiés et propriétaires des données.
+- Ajouter un seed pour les groupes et espèces de chauves-souris.
 
-Create these routes:
+## Phase 3 — Synchronisation
 
-- `/dashboard`
-- `/sites`
-- `/sites/new`
-- `/sites/[siteId]`
-- `/sessions/[sessionId]`
-- `/sessions/[sessionId]/export`
+- Envoyer les sessions, points et observations locaux vers Supabase.
+- Marquer les données locales avec `syncedAt` après synchronisation réussie.
+- Récupérer l'historique synchronisé dans le tableau de bord.
+- Définir un comportement simple en cas de conflit.
 
-## Main Components
+## Phase 4 — Exports et qualité des données
 
-### Layout components
+- Ajouter les coordonnées des points avant de réintroduire un export GeoJSON.
+- Valider plus strictement la structure des exports CSV et JSON.
+- Prévoir un outil d'import ou de récupération si nécessaire.
 
-- `AppShell`
-- `TopBar`
-- `BottomNav`
-- `OfflineStatus`
+## Phase 5 — Documentation et maintenance
 
-### Site components
-
-- `SiteForm`
-- `SiteList`
-- `SiteCard`
-
-### Session components
-
-- `SessionSetupForm`
-- `PointList`
-- `PointCard`
-
-### Chrono-counter components
-
-- `ChronoCounterScreen`
-- `Timer`
-- `IntervalDots`
-- `BatGroupCounter`
-- `SpeciesCounter`
-- `PointRemarks`
-- `ValidatePointButton`
-
-### Export components
-
-- `ExportActions`
-- `ExportPreview`
-
-## Development Order
-
-1. Create database tables.
-2. Build `/dashboard`.
-3. Build site CRUD.
-4. Build session creation.
-5. Build chrono-counter UI.
-6. Save observations online.
-7. Add local IndexedDB draft storage.
-8. Add sync when back online.
-9. Add CSV/JSON export.
+- Garder `README.md` aligné avec l'état réel de l'application.
+- Mettre à jour ce plan après chaque lot fonctionnel.
+- Documenter les choix de synchronisation et de schéma dès qu'ils sont implémentés.
