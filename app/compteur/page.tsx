@@ -5,7 +5,7 @@ import CompteurScreen from './compteur-screen'
 
 export default async function CompteurPage() {
   const h = await headers()
-  const name = h.get('x-user-name') ?? 'Utilisateur'
+  const name = decodeURIComponent(h.get('x-user-name') ?? 'Utilisateur')
   const avatar = h.get('x-user-avatar') ?? null
 
   return (

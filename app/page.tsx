@@ -4,7 +4,7 @@ import Dashboard from './components/dashboard'
 
 export default async function Page() {
   const h = await headers()
-  const name = h.get('x-user-name') ?? 'Utilisateur'
+  const name = decodeURIComponent(h.get('x-user-name') ?? 'Utilisateur')
   const avatar = h.get('x-user-avatar') ?? null
 
   return (
