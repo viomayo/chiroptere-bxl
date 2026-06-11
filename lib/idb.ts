@@ -22,10 +22,12 @@ export interface SessionData {
 export interface SpeciesCount {
   name: string
   count: number
+  trancheHistory: number[]
 }
 
 export interface GroupCount {
   total: number
+  trancheHistory: number[]
   species: SpeciesCount[]
 }
 
@@ -49,7 +51,7 @@ export interface PointData {
 }
 
 export function defaultCounts(): PointCounts {
-  const empty = (): GroupCount => ({ total: 0, species: [] })
+  const empty = (): GroupCount => ({ total: 0, trancheHistory: [], species: [] })
   return { pipistrelles: empty(), murins: empty(), serotules: empty(), autres: empty() }
 }
 
@@ -71,7 +73,34 @@ function openDB(): Promise<IDBDatabase> {
   })
 }
 
+function hydrateSpeciesCount(raw: unknown): SpeciesCount {
+  if (!raw || typeof raw !== 'object') return { name: '', count: 0, trancheHistory: [] }
+  const s = raw as Record<string, unknown>
+  return {
+    name: typeof s.name === 'string' ? s.name : '',
+    count: typeof s.count === 'number' ? s.count : 0,
+    trancheHistory: Array.isArray(s.trancheHistory) ? (s.trancheHistory as number[]) : [],
+  }
+}
+
+function hydrateGroupCount(raw: unknown): GroupCount {
+  if (!raw || typeof raw !== 'object') return { total: 0, trancheHistory: [], species: [] }
+  const g = raw as Record<string, unknown>
+  return {
+    total: typeof g.total === 'number' ? g.total : 0,
+    trancheHistory: Array.isArray(g.trancheHistory) ? (g.trancheHistory as number[]) : [],
+    species: Array.isArray(g.species) ? (g.species as unknown[]).map(hydrateSpeciesCount) : [],
+  }
+}
+
 function hydratePoint(raw: Record<string, unknown>): PointData {
+  const rc = raw.counts as Record<string, unknown> | undefined
+  const counts: PointCounts = rc ? {
+    pipistrelles: hydrateGroupCount(rc.pipistrelles),
+    murins: hydrateGroupCount(rc.murins),
+    serotules: hydrateGroupCount(rc.serotules),
+    autres: hydrateGroupCount(rc.autres),
+  } : defaultCounts()
   return {
     id: raw.id as string,
     sessionId: raw.sessionId as string,
@@ -80,7 +109,7 @@ function hydratePoint(raw: Record<string, unknown>): PointData {
     heureFin: (raw.heureFin as string | null) ?? null,
     nbEspeces: (raw.nbEspeces as number) ?? 0,
     statut: (raw.statut as PointData['statut']) ?? 'non_demarre',
-    counts: (raw.counts as PointCounts) ?? defaultCounts(),
+    counts,
     commentaire: (raw.commentaire as string) ?? '',
   }
 }

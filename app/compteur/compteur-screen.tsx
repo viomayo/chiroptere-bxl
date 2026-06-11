@@ -72,28 +72,46 @@ function announce(text: string) {
   window.speechSynthesis.speak(u)
 }
 
+// ── Tranche dots ──────────────────────────────────────────────────────────────
+
+function TrancheDots({ history, nbTranches }: { history: number[]; nbTranches: number }) {
+  const set = new Set(history)
+  return (
+    <div className="flex flex-wrap gap-1">
+      {Array.from({ length: nbTranches }, (_, i) => i + 1).map((t) => (
+        <span
+          key={t}
+          className={`w-2 h-2 rounded-full transition-colors duration-200 ${
+            set.has(t) ? 'bg-foreground' : 'bg-foreground/12'
+          }`}
+        />
+      ))}
+    </div>
+  )
+}
+
 // ── Group card ────────────────────────────────────────────────────────────────
 
 function GroupCard({
   groupKey,
   count,
   nbTranches,
-  expanded,
+  canAdd,
   onAdd,
   onRemove,
-  onAddSpecies,
-  onRemoveSpecies,
+  onMax,
   onToggle,
+  expanded,
 }: {
   groupKey: GroupKey
   count: GroupCount
   nbTranches: number
-  expanded: boolean
+  canAdd: boolean
   onAdd: () => void
   onRemove: () => void
-  onAddSpecies: (sp: string) => void
-  onRemoveSpecies: (sp: string) => void
+  onMax: () => void
   onToggle: () => void
+  expanded: boolean
 }) {
   return (
     <div className="rounded-xl border border-foreground/8 bg-background p-3 flex flex-col gap-2.5">
@@ -115,7 +133,7 @@ function GroupCard({
         <span className="text-sm text-foreground/20"> /{nbTranches}</span>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-1.5">
         <button
           type="button"
           onClick={onRemove}
@@ -127,49 +145,103 @@ function GroupCard({
         <button
           type="button"
           onClick={onAdd}
-          className="flex-1 h-10 rounded-lg bg-foreground/8 text-foreground text-xl font-medium hover:bg-foreground/12 active:bg-foreground/16 transition-colors cursor-pointer"
+          disabled={!canAdd}
+          className="flex-1 h-10 rounded-lg bg-foreground/8 text-foreground text-xl font-medium hover:bg-foreground/12 active:bg-foreground/16 disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer"
         >
           +
         </button>
+        <button
+          type="button"
+          onClick={onMax}
+          className="px-2.5 h-10 rounded-lg border border-foreground/10 text-xs font-medium text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 transition-colors cursor-pointer"
+        >
+          MAX
+        </button>
       </div>
 
-      {expanded && (
-        <div className="border-t border-foreground/5 pt-1.5 flex flex-col gap-0.5">
-          {SPECIES[groupKey].map((sp) => {
-            const n = count.species.find((s) => s.name === sp)?.count ?? 0
-            return (
-              <div
-                key={sp}
-                className="flex items-center justify-between gap-1 px-0.5 py-1"
+      <TrancheDots history={count.trancheHistory} nbTranches={nbTranches} />
+    </div>
+  )
+}
+
+// ── Species detail card ───────────────────────────────────────────────────────
+
+function SpeciesDetailCard({
+  groupKey,
+  count,
+  nbTranches,
+  onAddSpecies,
+  onRemoveSpecies,
+  onSpeciesMax,
+}: {
+  groupKey: GroupKey
+  count: GroupCount
+  nbTranches: number
+  onAddSpecies: (sp: string) => void
+  onRemoveSpecies: (sp: string) => void
+  onSpeciesMax: (sp: string) => void
+}) {
+  const totalSpecies = count.species.filter((s) => s.count > 0).length
+  return (
+    <div className="rounded-xl border border-foreground/8 bg-background p-3 flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium tracking-wide text-foreground/55">
+          ↳ {GROUP_LABELS[groupKey]} — détail espèces
+        </span>
+        <span className="text-xs text-foreground/35">sp: {totalSpecies}</span>
+      </div>
+
+      {SPECIES[groupKey].map((sp) => {
+        const entry = count.species.find((s) => s.name === sp)
+        const n = entry?.count ?? 0
+        const history = entry?.trancheHistory ?? []
+        return (
+          <div key={sp} className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-2">
+              <span
+                className={`text-sm flex-1 min-w-0 ${
+                  n > 0 ? 'text-foreground' : 'text-foreground/40'
+                }`}
               >
-                <span className={`text-xs flex-1 min-w-0 ${n > 0 ? 'text-foreground' : 'text-foreground/40'}`}>
-                  {sp}
+                {sp}
+              </span>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => onRemoveSpecies(sp)}
+                  disabled={n === 0}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-foreground/10 text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                >
+                  −
+                </button>
+                <span
+                  className={`w-7 text-center text-sm tabular-nums font-mono ${
+                    n > 0 ? 'text-foreground font-semibold' : 'text-foreground/20'
+                  }`}
+                >
+                  {n}
                 </span>
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => onRemoveSpecies(sp)}
-                    disabled={n === 0}
-                    className="w-6 h-6 flex items-center justify-center rounded border border-foreground/10 text-foreground/55 text-sm hover:bg-foreground/5 active:bg-foreground/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                  >
-                    −
-                  </button>
-                  <span className={`w-5 text-center text-xs tabular-nums font-mono ${n > 0 ? 'text-foreground font-semibold' : 'text-foreground/20'}`}>
-                    {n}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => onAddSpecies(sp)}
-                    className="w-6 h-6 flex items-center justify-center rounded bg-foreground/8 text-foreground text-sm font-medium hover:bg-foreground/12 active:bg-foreground/16 transition-colors cursor-pointer"
-                  >
-                    +
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => onAddSpecies(sp)}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-foreground/8 text-foreground hover:bg-foreground/12 active:bg-foreground/16 transition-colors cursor-pointer"
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSpeciesMax(sp)}
+                  disabled={count.total === 0}
+                  className="px-2.5 h-8 rounded-lg border border-foreground/10 text-xs font-medium text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                >
+                  MAX
+                </button>
               </div>
-            )
-          })}
-        </div>
-      )}
+            </div>
+            <TrancheDots history={history} nbTranches={nbTranches} />
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -334,39 +406,96 @@ export default function CompteurScreen() {
     setExpandedGroups(new Set())
   }
 
+  // ── Count handlers ────────────────────────────────────────────────────────
+
   function handleAdd(group: GroupKey) {
-    setCounts((prev) => ({
-      ...prev,
-      [group]: { ...prev[group], total: prev[group].total + 1 },
-    }))
+    const tranche = currentTrancheRef.current
+    setCounts((prev) => {
+      const g = prev[group]
+      if (g.trancheHistory.includes(tranche)) return prev
+      return {
+        ...prev,
+        [group]: {
+          ...g,
+          total: g.total + 1,
+          trancheHistory: [...g.trancheHistory, tranche],
+        },
+      }
+    })
     setExpandedGroups((prev) => new Set(prev).add(group))
   }
 
   function handleRemove(group: GroupKey) {
+    setCounts((prev) => {
+      const g = prev[group]
+      if (g.total === 0) return prev
+      return {
+        ...prev,
+        [group]: {
+          ...g,
+          total: g.total - 1,
+          trancheHistory: g.trancheHistory.slice(0, -1),
+        },
+      }
+    })
+  }
+
+  function handleGroupMax(group: GroupKey) {
+    const allTranches = Array.from({ length: config.nbTranches }, (_, i) => i + 1)
     setCounts((prev) => ({
       ...prev,
-      [group]: { ...prev[group], total: Math.max(0, prev[group].total - 1) },
+      [group]: { ...prev[group], total: config.nbTranches, trancheHistory: allTranches },
     }))
+    setExpandedGroups((prev) => new Set(prev).add(group))
   }
 
   function handleAddSpecies(group: GroupKey, sp: string) {
+    const tranche = currentTrancheRef.current
     setCounts((prev) => {
-      const existing = prev[group].species.find((s) => s.name === sp)
+      const g = prev[group]
+      const existing = g.species.find((s) => s.name === sp)
       const species = existing
-        ? prev[group].species.map((s) => (s.name === sp ? { ...s, count: s.count + 1 } : s))
-        : [...prev[group].species, { name: sp, count: 1 }]
-      return { ...prev, [group]: { ...prev[group], total: prev[group].total + 1, species } }
+        ? g.species.map((s) =>
+            s.name === sp
+              ? {
+                  ...s,
+                  count: s.count + 1,
+                  trancheHistory: s.trancheHistory.includes(tranche)
+                    ? s.trancheHistory
+                    : [...s.trancheHistory, tranche],
+                }
+              : s
+          )
+        : [...g.species, { name: sp, count: 1, trancheHistory: [tranche] }]
+      return { ...prev, [group]: { ...g, species } }
     })
   }
 
   function handleRemoveSpecies(group: GroupKey, sp: string) {
     setCounts((prev) => {
-      const existing = prev[group].species.find((s) => s.name === sp)
+      const g = prev[group]
+      const existing = g.species.find((s) => s.name === sp)
       if (!existing || existing.count === 0) return prev
-      const species = prev[group].species.map((s) =>
+      const species = g.species.map((s) =>
         s.name === sp ? { ...s, count: s.count - 1 } : s
       )
-      return { ...prev, [group]: { ...prev[group], total: Math.max(0, prev[group].total - 1), species } }
+      return { ...prev, [group]: { ...g, species } }
+    })
+  }
+
+  function handleSpeciesMax(group: GroupKey, sp: string) {
+    setCounts((prev) => {
+      const g = prev[group]
+      if (g.total === 0) return prev
+      const existing = g.species.find((s) => s.name === sp)
+      const species = existing
+        ? g.species.map((s) =>
+            s.name === sp
+              ? { ...s, count: g.total, trancheHistory: [...g.trancheHistory] }
+              : s
+          )
+        : [...g.species, { name: sp, count: g.total, trancheHistory: [...g.trancheHistory] }]
+      return { ...prev, [group]: { ...g, species } }
     })
   }
 
@@ -388,9 +517,9 @@ export default function CompteurScreen() {
       commentaire,
     }
     await updatePoint(updated)
-  const allPoints = await getPointsBySession(point.sessionId)
-  const next = allPoints.find((p) => p.numero === point.numero + 1)
-  router.push(next ? `/compteur?pointId=${next.id}` : '/points')
+    const allPoints = await getPointsBySession(point.sessionId)
+    const next = allPoints.find((p) => p.numero === point.numero + 1)
+    router.push(next ? `/compteur?pointId=${next.id}` : '/points')
   }
 
   // ── Derived display values ──
@@ -403,6 +532,16 @@ export default function CompteurScreen() {
       ? `${session.acronyme}-${p2(point.numero)}`
       : '—'
   const progress = (trancheElapsed / config.trancheDurationSec) * 100
+
+  const groups: GroupKey[] = ['pipistrelles', 'murins', 'serotules', 'autres']
+
+  function toggleGroup(group: GroupKey) {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev)
+      next.has(group) ? next.delete(group) : next.add(group)
+      return next
+    })
+  }
 
   // ── Render ──
 
@@ -434,7 +573,6 @@ export default function CompteurScreen() {
 
       {/* ── Timer card ── */}
       <div className="rounded-xl border border-foreground/8 bg-background p-4 flex flex-col gap-3">
-
         {/* Tranche bubbles */}
         <div className="flex flex-wrap gap-1.5">
           {Array.from({ length: config.nbTranches }, (_, i) => {
@@ -546,21 +684,38 @@ export default function CompteurScreen() {
 
       {/* ── Group cards ── */}
       <div className="grid grid-cols-2 gap-3 items-start">
-        {(['pipistrelles', 'murins', 'serotules', 'autres'] as GroupKey[]).map((group) => (
-          <GroupCard
-            key={group}
-            groupKey={group}
-            count={counts[group]}
-            nbTranches={config.nbTranches}
-            expanded={expandedGroups.has(group)}
-            onAdd={() => handleAdd(group)}
-            onRemove={() => handleRemove(group)}
-            onAddSpecies={(sp) => handleAddSpecies(group, sp)}
-            onRemoveSpecies={(sp) => handleRemoveSpecies(group, sp)}
-            onToggle={() => setExpandedGroups((prev) => { const next = new Set(prev); next.has(group) ? next.delete(group) : next.add(group); return next })}
-          />
-        ))}
+        {groups.map((group) => {
+          const canAdd =
+            started && (finished || !counts[group].trancheHistory.includes(currentTranche))
+          return (
+            <GroupCard
+              key={group}
+              groupKey={group}
+              count={counts[group]}
+              nbTranches={config.nbTranches}
+              canAdd={canAdd}
+              onAdd={() => handleAdd(group)}
+              onRemove={() => handleRemove(group)}
+              onMax={() => handleGroupMax(group)}
+              expanded={expandedGroups.has(group)}
+              onToggle={() => toggleGroup(group)}
+            />
+          )
+        })}
       </div>
+
+      {/* ── Species detail cards ── */}
+      {groups.filter((g) => expandedGroups.has(g)).map((group) => (
+        <SpeciesDetailCard
+          key={group}
+          groupKey={group}
+          count={counts[group]}
+          nbTranches={config.nbTranches}
+          onAddSpecies={(sp) => handleAddSpecies(group, sp)}
+          onRemoveSpecies={(sp) => handleRemoveSpecies(group, sp)}
+          onSpeciesMax={(sp) => handleSpeciesMax(group, sp)}
+        />
+      ))}
 
       {/* ── Comment ── */}
       <div className="flex flex-col gap-1.5">
