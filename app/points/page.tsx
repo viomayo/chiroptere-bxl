@@ -1,21 +1,12 @@
 import { Suspense } from 'react'
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { headers } from 'next/headers'
 import AppShell from '@/app/components/app-shell'
 import PointsList from './points-list'
 
 export default async function PointsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) redirect('/login')
-
-  const name: string =
-    user.user_metadata?.full_name ??
-    user.user_metadata?.name ??
-    user.email ??
-    'Utilisateur'
-  const avatar: string | null = user.user_metadata?.avatar_url ?? null
+  const h = await headers()
+  const name = h.get('x-user-name') ?? 'Utilisateur'
+  const avatar = h.get('x-user-avatar') ?? null
 
   return (
     <AppShell name={name} avatar={avatar}>
