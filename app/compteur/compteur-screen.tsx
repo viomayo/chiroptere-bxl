@@ -207,7 +207,7 @@ export default function CompteurScreen() {
 
   // Counts
   const [counts, setCounts] = useState<PointCounts>(defaultCounts())
-  const [expandedGroup, setExpandedGroup] = useState<GroupKey | null>(null)
+  const [expandedGroups, setExpandedGroups] = useState<Set<GroupKey>>(new Set())
   const [commentaire, setCommentaire] = useState('')
 
   // Load
@@ -330,6 +330,8 @@ export default function CompteurScreen() {
     currentTrancheRef.current = 1
     trancheElapsedRef.current = 0
     trancheStartRef.current = null
+    setCounts(defaultCounts())
+    setExpandedGroups(new Set())
   }
 
   function handleAdd(group: GroupKey) {
@@ -337,7 +339,7 @@ export default function CompteurScreen() {
       ...prev,
       [group]: { ...prev[group], total: prev[group].total + 1 },
     }))
-    setExpandedGroup(group)
+    setExpandedGroups((prev) => new Set(prev).add(group))
   }
 
   function handleRemove(group: GroupKey) {
@@ -550,12 +552,12 @@ export default function CompteurScreen() {
             groupKey={group}
             count={counts[group]}
             nbTranches={config.nbTranches}
-            expanded={expandedGroup === group}
+            expanded={expandedGroups.has(group)}
             onAdd={() => handleAdd(group)}
             onRemove={() => handleRemove(group)}
             onAddSpecies={(sp) => handleAddSpecies(group, sp)}
             onRemoveSpecies={(sp) => handleRemoveSpecies(group, sp)}
-            onToggle={() => setExpandedGroup(expandedGroup === group ? null : group)}
+            onToggle={() => setExpandedGroups((prev) => { const next = new Set(prev); next.has(group) ? next.delete(group) : next.add(group); return next })}
           />
         ))}
       </div>

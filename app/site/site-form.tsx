@@ -5,43 +5,44 @@ import { useRouter } from 'next/navigation'
 import { Check } from 'lucide-react'
 import { saveSession, type SessionData } from '@/lib/idb'
 
-const TYPES_SITE = [
-  'Forêt',
-  'Zone humide',
-  'Prairie',
-  'Bocage',
-  'Zone urbaine',
-  'Zone périurbaine',
-  'Lisière',
-  'Parc',
-  'Jardin',
-  'Autre',
-]
+const PROTOCOLES = ['Plan d\'eau (2 min)', 'Transect forestier (3 min)'] as const
 
-const SITES: { nom: string; acronyme: string }[] = [
-  { nom: 'Forêt de Soignes', acronyme: 'FSO' },
-  { nom: 'Bois de la Cambre', acronyme: 'CAM' },
-  { nom: 'Parc de Laeken', acronyme: 'LAE' },
-  { nom: 'Parc du Cinquantenaire', acronyme: 'CIN' },
-  { nom: 'Parc Josaphat', acronyme: 'JOS' },
-  { nom: 'Bois de Hal', acronyme: 'HAL' },
-  { nom: 'Parc de Bruxelles', acronyme: 'BRU' },
-  { nom: 'Jardin Botanique', acronyme: 'BOT' },
-  { nom: 'Parc de la Woluwe', acronyme: 'WOL' },
-  { nom: 'Parc Tenbosch', acronyme: 'TEN' },
-  { nom: 'Parc du Wolvendael', acronyme: 'WLV' },
-  { nom: 'Parc de Forest', acronyme: 'FOR' },
-]
+const SITES_BY_PROTOCOLE: Record<string, { nom: string; acronyme: string }[]> = {
+  'Plan d\'eau (2 min)': [
+    { nom: 'Bois de la Cambre (Bruxelles)', acronyme: 'CAM' },
+    { nom: 'Canal Willebroeck - Charleroi', acronyme: 'CNL' },
+    { nom: 'Bois de Laerbeek (Jette)', acronyme: 'LAA'},
+    { nom: 'Marais de Jette', acronyme: 'MDJ' },
+    { nom: 'Moeraske (Evere) / parc Walckiers (Schaerbeek)', acronyme: 'MRK' },
+    { nom: 'Bassin d\'orage de Neerpede (Anderlecht)', acronyme: 'NEE' },
+    { nom: 'Poelbos (Jette)', acronyme: 'POE' },
+    { nom: 'Parc Roi Baudouin phase 1 (Jette)', acronyme: 'RB1' },
+    { nom: 'Parc Roi Baudouin phase 2 (Jette)', acronyme: 'RB2' },
+    { nom: 'Parc Sobieski (Bruxelles)', acronyme: 'SBK' },
+    { nom: 'Bois du Wilder (Berchem-Sainte-Agathe)', acronyme: 'WLR' },
+  ],
+  'Transect forestier (3 min)': [
+    { nom: 'Bois de la Cambre', acronyme: 'CAM' },
+    { nom: 'Damenrust', acronyme: 'DAR' },
+    { nom: 'Chemin de Diependelle', acronyme: 'DPD' },
+    { nom: 'Drève de l\'Infante', acronyme: 'INF' },
+    { nom: 'Parc Malou', acronyme: 'MAL' },
+    { nom: 'Rouge-Cloître', acronyme: 'RCL' },
+    { nom: 'Terrest (Jezus-Eik)', acronyme: 'TRT' },
+    { nom: 'Vuursteen (Silex)', acronyme: 'VUU' },
+    { nom: 'Wollenborre', acronyme: 'WLB' },
+    { nom: 'Parc de Woluwe', acronyme: 'WUP' },
+  ],
+}
 
 const DETECTEURS = [
-  'SM4',
-  'SM Mini',
-  'Anabat Swift',
-  'D500x',
-  'Echo Meter Touch 2',
-  'Batlogger M',
-  'Pettersson D240X',
-  'Elekon Batscanner',
+  'D240X',
+  'M500',
+  'TeensyBat',
+  'Active Recorder',
+  'D200',
+  'D100',
+  'Batbox Duet',
 ]
 
 function nowLocal(): string {
@@ -57,7 +58,7 @@ function nowLocal(): string {
 }
 
 const inputClass =
-  'w-full rounded-lg border border-foreground/10 bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground/30'
+  'w-full rounded-lg border border-foreground/10 bg-background px-3 py-2.5 text-base text-foreground focus:outline-none focus:ring-1 focus:ring-foreground/30'
 
 export default function SiteForm({ compteurPrincipal }: { compteurPrincipal: string }) {
   const router = useRouter()
@@ -72,9 +73,16 @@ export default function SiteForm({ compteurPrincipal }: { compteurPrincipal: str
   const [commentaire, setCommentaire] = useState('')
   const [error, setError] = useState('')
 
+  function handleTypeSiteChange(type: string) {
+    setTypeSite(type)
+    setNomSite('')
+    setAcronyme('')
+  }
+
   function handleNomSiteChange(nom: string) {
     setNomSite(nom)
-    const site = SITES.find((s) => s.nom === nom)
+    const sites = SITES_BY_PROTOCOLE[typeSite] ?? []
+    const site = sites.find((s) => s.nom === nom)
     setAcronyme(site ? site.acronyme : '')
   }
 
@@ -120,12 +128,12 @@ export default function SiteForm({ compteurPrincipal }: { compteurPrincipal: str
         </label>
         <select
           value={typeSite}
-          onChange={(e) => setTypeSite(e.target.value)}
+          onChange={(e) => handleTypeSiteChange(e.target.value)}
           required
           className={inputClass}
         >
-          <option value="">Sélectionner...</option>
-          {TYPES_SITE.map((t) => (
+          <option value="">— Choisir un type —</option>
+          {PROTOCOLES.map((t) => (
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
@@ -139,10 +147,11 @@ export default function SiteForm({ compteurPrincipal }: { compteurPrincipal: str
           value={nomSite}
           onChange={(e) => handleNomSiteChange(e.target.value)}
           required
-          className={inputClass}
+          disabled={!typeSite}
+          className={`${inputClass} disabled:opacity-50 disabled:cursor-not-allowed`}
         >
-          <option value="">Sélectionner...</option>
-          {SITES.map((s) => (
+          <option value="">— Choisir un site —</option>
+          {(SITES_BY_PROTOCOLE[typeSite] ?? []).map((s) => (
             <option key={s.nom} value={s.nom}>{s.nom}</option>
           ))}
         </select>
@@ -190,7 +199,7 @@ export default function SiteForm({ compteurPrincipal }: { compteurPrincipal: str
           type="text"
           value={compteurPrincipal}
           readOnly
-          className="w-full rounded-lg border border-foreground/10 bg-foreground/5 px-3 py-2.5 text-sm text-foreground/50 cursor-not-allowed"
+          className="w-full rounded-lg border border-foreground/10 bg-foreground/5 px-3 py-2.5 text-base text-foreground/50 cursor-not-allowed"
         />
       </div>
 
@@ -206,9 +215,10 @@ export default function SiteForm({ compteurPrincipal }: { compteurPrincipal: str
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium">Nombre de points d'écoute</label>
+        <label className="text-sm font-medium">Nombre de points d&apos;écoute</label>
         <input
           type="number"
+          inputMode="numeric"
           min="1"
           max="99"
           value={nbPointsEcoute}
