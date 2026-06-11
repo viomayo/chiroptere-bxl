@@ -170,6 +170,9 @@ function SpeciesDetailCard({
   groupKey,
   count,
   nbTranches,
+  currentTranche,
+  started,
+  finished,
   onAddSpecies,
   onRemoveSpecies,
   onSpeciesMax,
@@ -177,6 +180,9 @@ function SpeciesDetailCard({
   groupKey: GroupKey
   count: GroupCount
   nbTranches: number
+  currentTranche: number
+  started: boolean
+  finished: boolean
   onAddSpecies: (sp: string) => void
   onRemoveSpecies: (sp: string) => void
   onSpeciesMax: (sp: string) => void
@@ -195,48 +201,46 @@ function SpeciesDetailCard({
         const entry = count.species.find((s) => s.name === sp)
         const n = entry?.count ?? 0
         const history = entry?.trancheHistory ?? []
+        const canAdd = started && (finished || !history.includes(currentTranche))
         return (
           <div key={sp} className="flex flex-col gap-1.5">
-            <div className="flex items-center gap-2">
+            <span
+              className={`text-sm ${n > 0 ? 'text-foreground' : 'text-foreground/40'}`}
+            >
+              {sp}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onRemoveSpecies(sp)}
+                disabled={n === 0}
+                className="w-9 h-9 flex items-center justify-center rounded-lg border border-foreground/10 text-xl text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              >
+                −
+              </button>
               <span
-                className={`text-sm flex-1 min-w-0 ${
-                  n > 0 ? 'text-foreground' : 'text-foreground/40'
+                className={`flex-1 text-center text-sm tabular-nums font-mono ${
+                  n > 0 ? 'text-foreground font-semibold' : 'text-foreground/20'
                 }`}
               >
-                {sp}
+                {n}
               </span>
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => onRemoveSpecies(sp)}
-                  disabled={n === 0}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-foreground/10 text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                >
-                  −
-                </button>
-                <span
-                  className={`w-7 text-center text-sm tabular-nums font-mono ${
-                    n > 0 ? 'text-foreground font-semibold' : 'text-foreground/20'
-                  }`}
-                >
-                  {n}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => onAddSpecies(sp)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-foreground/8 text-foreground hover:bg-foreground/12 active:bg-foreground/16 transition-colors cursor-pointer"
-                >
-                  +
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onSpeciesMax(sp)}
-                  disabled={count.total === 0}
-                  className="px-2.5 h-8 rounded-lg border border-foreground/10 text-xs font-medium text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                >
-                  MAX
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => onAddSpecies(sp)}
+                disabled={!canAdd}
+                className="w-9 h-9 flex items-center justify-center rounded-lg bg-foreground/8 text-foreground text-xl font-medium hover:bg-foreground/12 active:bg-foreground/16 disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              >
+                +
+              </button>
+              <button
+                type="button"
+                onClick={() => onSpeciesMax(sp)}
+                disabled={count.total === 0}
+                className="px-3 h-9 rounded-lg border border-foreground/10 text-xs font-medium text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              >
+                MAX
+              </button>
             </div>
             <TrancheDots history={history} nbTranches={nbTranches} />
           </div>
@@ -454,16 +458,11 @@ export default function CompteurScreen() {
     setCounts((prev) => {
       const g = prev[group]
       const existing = g.species.find((s) => s.name === sp)
+      if (existing?.trancheHistory.includes(tranche)) return prev
       const species = existing
         ? g.species.map((s) =>
             s.name === sp
-              ? {
-                  ...s,
-                  count: s.count + 1,
-                  trancheHistory: s.trancheHistory.includes(tranche)
-                    ? s.trancheHistory
-                    : [...s.trancheHistory, tranche],
-                }
+              ? { ...s, count: s.count + 1, trancheHistory: [...s.trancheHistory, tranche] }
               : s
           )
         : [...g.species, { name: sp, count: 1, trancheHistory: [tranche] }]
@@ -574,7 +573,7 @@ export default function CompteurScreen() {
       {/* ── Timer card ── */}
       <div className="rounded-xl border border-foreground/8 bg-background p-4 flex flex-col gap-3">
         {/* Tranche bubbles */}
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex gap-1 justify-center">
           {Array.from({ length: config.nbTranches }, (_, i) => {
             const t = i + 1
             const done = finished || (started && t < currentTranche)
@@ -582,7 +581,7 @@ export default function CompteurScreen() {
             return (
               <span
                 key={t}
-                className={`w-3 h-3 rounded-full transition-colors duration-300 ${
+                className={`w-3 h-3 shrink-0 rounded-full transition-colors duration-300 ${
                   done
                     ? 'bg-foreground'
                     : active
@@ -711,6 +710,9 @@ export default function CompteurScreen() {
           groupKey={group}
           count={counts[group]}
           nbTranches={config.nbTranches}
+          currentTranche={currentTranche}
+          started={started}
+          finished={finished}
           onAddSpecies={(sp) => handleAddSpecies(group, sp)}
           onRemoveSpecies={(sp) => handleRemoveSpecies(group, sp)}
           onSpeciesMax={(sp) => handleSpeciesMax(group, sp)}

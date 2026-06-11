@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { getSessions, getSessionById, initSessionPoints, type SessionData, type PointData } from '@/lib/idb'
+import { getSessions, getSessionById, initSessionPoints, type SessionData, type PointData, type PointCounts } from '@/lib/idb'
 import { ChevronRight, Download } from 'lucide-react'
 
 type Statut = PointData['statut']
@@ -29,6 +29,15 @@ function formatTime(iso: string | null): string {
   if (!iso) return '—'
   const d = new Date(iso)
   return d.toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' })
+}
+
+function getGroupTotals(counts: PointCounts): { label: string; total: number }[] {
+  return [
+    { label: 'Pipistrelles', total: counts.pipistrelles.total },
+    { label: 'Murins', total: counts.murins.total },
+    { label: 'Sérotules', total: counts.serotules.total },
+    { label: 'Autres', total: counts.autres.total },
+  ].filter((g) => g.total > 0)
 }
 
 function downloadBlob(content: string, filename: string, mime: string) {
@@ -171,6 +180,7 @@ export default function PointsList() {
 
       {points.map((point) => {
         const label = `${session.acronyme}-${String(point.numero).padStart(2, '0')}`
+        const groups = getGroupTotals(point.counts)
         return (
           <button
             key={point.id}
@@ -181,24 +191,31 @@ export default function PointsList() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2 mb-1.5">
                 <span className="font-mono text-sm font-medium tracking-wider">{label}</span>
-                <span className={`flex items-center gap-1.5 text-xs ${STATUT_TEXT[point.statut]}`}>
+                <span className={`flex items-center gap-1.5 text-xs shrink-0 ${STATUT_TEXT[point.statut]}`}>
                   <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUT_DOT[point.statut]}`} />
                   {STATUT_LABEL[point.statut]}
                 </span>
               </div>
-              <div className="flex items-center gap-3 text-xs text-foreground/45">
-                <span>
+              <div className="flex items-center gap-2 text-xs text-foreground/45">
+                <span className="tabular-nums">
                   {formatTime(point.heureDebut)}
-                  <span className="mx-1.5 text-foreground/20">→</span>
+                  <span className="mx-1 text-foreground/20">→</span>
                   {formatTime(point.heureFin)}
                 </span>
-                <span className="text-foreground/20">·</span>
-                <span>
-                  {point.nbEspeces > 0
-                    ? `${point.nbEspeces} espèce${point.nbEspeces > 1 ? 's' : ''}`
-                    : '—'}
-                </span>
               </div>
+              {groups.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {groups.map((g) => (
+                    <span
+                      key={g.label}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-foreground/12 text-xs text-foreground/60"
+                    >
+                      {g.label.slice(0, 3)}
+                      <span className="font-semibold text-foreground/80">{g.total}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <ChevronRight size={15} className="text-foreground/20 shrink-0" />
           </button>
