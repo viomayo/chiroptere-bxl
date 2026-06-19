@@ -31,6 +31,6 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 
 ## Phase 5 — Documentation et maintenance
 
-- Garder `README.md` aligné avec l'état réel de l'application.
-- Mettre à jour ce plan après chaque lot fonctionnel.
+- [fait] Garder `README.md` aligné avec l'état réel de l'application.
+- [fait] Mettre à jour ce plan après chaque lot fonctionnel.
 - Documenter les choix de synchronisation et de schéma dès qu'ils sont implémentés.

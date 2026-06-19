@@ -50,6 +50,19 @@ export default function AppShell({ name, avatar, children }: AppShellProps) {
       <SubNavbar />
 
       {children}
+
+      <footer className="text-center py-4 px-4 border-t border-foreground/8 pb-20 lg:pb-4">
+        <p className="text-sm text-foreground/45">
+          Développé par{' '}
+          <a href="https://www.github.com/thedasken" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground/70 transition-colors">
+            thedasken
+          </a>
+          {' '}et{' '}
+          <a href="https://www.github.com/viomayo" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground/70 transition-colors">
+            viomayo
+          </a>
+        </p>
+      </footer>
     </div>
   )
 }
