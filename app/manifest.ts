@@ -3,7 +3,7 @@ import type { MetadataRoute } from 'next'
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Chiroptère BXL',
-    short_name: 'Chirop BXL',
+    short_name: 'Chiro BXL',
     description: 'Suivi nocturne des chauves-souris à Bruxelles',
     start_url: '/',
     display: 'standalone',
