@@ -6,7 +6,8 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 
 ## Phase 1 — Stabiliser l'application locale
 
-- [fait] Ajouter `loading="eager"` sur les logos (éléments LCP potentiels).
+- [fait] Ajouter `loading="eager"` et `unoptimized` sur les logos (chunk PNG incompatible avec l'optimiseur Next.js).
+- [fait] Rattraper `public/logo.png` manquant dans git et unifier les icônes PWA sur `/logo.png`.
 - Ajouter des tests ciblés pour IndexedDB, la persistance du compteur, la remise à zéro et les exports.
 - Renforcer la validation du formulaire de session.
 - Vérifier le comportement mobile, notamment la synthèse vocale sur iOS Safari.
