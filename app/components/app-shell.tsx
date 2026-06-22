@@ -20,7 +20,7 @@ export default function AppShell({ name, avatar, children }: AppShellProps) {
               alt="Chiroptère BXL"
               width={28}
               height={28}
-              fetchPriority="high"
+              loading="eager"
               className="rounded-lg"
             />
             <span className="text-sm font-medium">Chiroptère BXL</span>

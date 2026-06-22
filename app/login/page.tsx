@@ -24,7 +24,7 @@ export default function LoginPage() {
             alt="Chiroptère BXL"
             width={40}
             height={40}
-            fetchPriority="high"
+            loading="eager"
             className="rounded-xl"
           />
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
