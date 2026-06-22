@@ -10,6 +10,7 @@ L'application est aujourd'hui un prototype local-first fonctionnel :
 - les données de terrain sont enregistrées localement dans IndexedDB, dans le navigateur ;
 - un footer avec les crédits des développeurs et leurs liens GitHub est affiché sur toutes les pages ;
 - la création de sessions, les points d'écoute, le compteur chronométré, la sauvegarde automatique des brouillons, la remise à zéro, le tableau de bord, les exports CSV/JSON et les bases PWA sont en place ;
+- les logos (LCP potentiels) utilisent `fetchPriority="high"` pour optimiser le Largest Contentful Paint ;
 - la synchronisation vers une base de données Supabase n'est pas encore implémentée.
 
 ## Routes principales

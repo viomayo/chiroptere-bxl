@@ -6,6 +6,7 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 
 ## Phase 1 — Stabiliser l'application locale
 
+- [fait] Ajouter `fetchPriority="high"` sur les logos (éléments LCP potentiels).
 - Ajouter des tests ciblés pour IndexedDB, la persistance du compteur, la remise à zéro et les exports.
 - Renforcer la validation du formulaire de session.
 - Vérifier le comportement mobile, notamment la synthèse vocale sur iOS Safari.

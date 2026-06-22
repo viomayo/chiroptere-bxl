@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
@@ -18,9 +19,14 @@ export default function LoginPage() {
     <main className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm flex flex-col items-center gap-8">
         <div className="flex flex-col items-center gap-2 text-center">
-          <div className="w-10 h-10 rounded-xl bg-foreground flex items-center justify-center">
-            <span className="text-background text-lg font-bold">C</span>
-          </div>
+          <Image
+            src="/logo.png"
+            alt="Chiroptère BXL"
+            width={40}
+            height={40}
+            fetchPriority="high"
+            className="rounded-xl"
+          />
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             Bienvenue
           </h1>

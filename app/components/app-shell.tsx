@@ -15,9 +15,14 @@ export default function AppShell({ name, avatar, children }: AppShellProps) {
       <header className="border-b border-foreground/8 px-4 sm:px-6">
         <nav className="max-w-5xl mx-auto h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-foreground flex items-center justify-center">
-              <span className="text-background text-xs font-bold">C</span>
-            </div>
+            <Image
+              src="/logo.png"
+              alt="Chiroptère BXL"
+              width={28}
+              height={28}
+              fetchPriority="high"
+              className="rounded-lg"
+            />
             <span className="text-sm font-medium">Chiroptère BXL</span>
           </Link>
 
