@@ -34,5 +34,5 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 
 - [fait] Garder `README.md` aligné avec l'état réel de l'application.
 - [fait] Mettre à jour ce plan après chaque lot fonctionnel.
-- [fait] Remplacer les icônes PWA par le nouveau logo (chauve-souris).
+- [fait] Remplacer les icônes PWA dédiées par `/logo.png` pour le manifeste et le splash screen.
 - Documenter les choix de synchronisation et de schéma dès qu'ils sont implémentés.

@@ -34,7 +34,7 @@ export default function SplashScreen() {
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/icon-512.png"
+        src="/logo.png"
         width={96}
         height={96}
         alt=""
