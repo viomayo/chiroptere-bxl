@@ -21,6 +21,7 @@ export default function AppShell({ name, avatar, children }: AppShellProps) {
               width={28}
               height={28}
               loading="eager"
+              unoptimized
               className="rounded-lg"
             />
             <span className="text-sm font-medium">Chiroptère BXL</span>

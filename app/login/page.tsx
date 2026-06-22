@@ -25,6 +25,7 @@ export default function LoginPage() {
             width={40}
             height={40}
             loading="eager"
+            unoptimized
             className="rounded-xl"
           />
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
