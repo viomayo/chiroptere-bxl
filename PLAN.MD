@@ -14,6 +14,9 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 - Ajouter des tests ciblés pour IndexedDB, la persistance du compteur, la remise à zéro et les exports.
 - Renforcer la validation du formulaire de session.
 - [fait] Vérifier le comportement mobile, notamment la synthèse vocale sur iOS Safari.
+- [fait] Adapter la taille des pastilles de tranches et bulles du timer en responsive (6 px mobile / 12 px desktop) pour tenir sur une ligne avec 18 tranches.
+- [fait] Réduire le bouton MAX (text-[10px], px-1.5) pour qu'il prenne moins de place que +/−.
+- [fait] Abréger les noms d'espèces dans l'interface (SPECIES_LABELS) et fusionner les espèces au même libellé court dans le résumé.
 - [fait] Séparer la localisation du point (description prédéfinie) des remarques libres de l'observateur : nouveau champ `localisation` dans `PointData`, affiché en lecture seule au-dessus du champ Remarques dans le compteur, et dans l'export CSV.
 
 ## Phase 2 — Persistance Supabase

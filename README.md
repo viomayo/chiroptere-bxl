@@ -14,6 +14,9 @@ L'application est aujourd'hui un prototype local-first fonctionnel :
 - les pastilles de tranches sont cliquables : un clic sur une pastille vide ajoute directement un comptage dans cette tranche, sans passer par le bouton + ;
 - chaque compteur (groupe et espèce) est indépendant : cliquer une pastille dans un groupe ou une espèce n'affecte pas les autres ;
 - le sélecteur d'espèces est intégré en ligne au compteur : cliquer le bouton + d'un groupe ou une pastille de tranche ouvre un choix d'espèces immédiat pour cette tranche, sans accordéon séparé ; un résumé des espèces comptées apparaît sous chaque groupe ;
+- les noms d'espèces sont abrégés dans l'interface (ex. PippiT, Myodau, Eptser) et les espèces au même libellé court sont fusionnées dans le résumé (ex. « autres Myo » regroupe les murins non listés) ;
+- les pastilles de tranches et les bulles du timer sont dimensionnées de manière responsive (6 px sur mobile, 12 px sur desktop) pour tenir sur une ligne, même avec 18 tranches (transects forestiers) ;
+- le bouton MAX est réduit (`text-[10px]`, `px-1.5`) pour prendre moins de place que +/− ;
 - la localisation de chaque point (description prédéfinie issue des données CSV) est affichée en lecture seule dans le compteur, séparée du champ de remarques libres de l'observateur ;
 - les logos (LCP potentiels) utilisent `loading="eager"` avec `unoptimized` (le PNG contient un chunk propriétaire incompatible avec l'optimiseur Next.js) ;
 - les icônes PWA (manifeste et splash screen) pointent vers `/logo.png` ;

@@ -35,6 +35,23 @@ const GROUP_COLORS: Record<GroupKey, string> = {
 
 const GROUP_KEYS: GroupKey[] = ['pipistrelles', 'murins', 'serotules', 'autres']
 
+const SPECIES_LABELS: Record<string, string> = {
+  'Pip. commune': 'PippiT',
+  'Pip. de Nathusius/Kuhl': 'Pipnat/Pipkuh',
+  'Pip. pygmée': 'Pippyg',
+  'Sérotine commune': 'Eptser',
+  'Noctule de Leisler': 'Nyclei',
+  'Noctule commune': 'Nycnoc',
+  'M. de Daubenton': 'Myodau',
+  'M. de Natterer': 'Myonat',
+  'M. museaux sombres': 'autres Myo',
+  'M. à oreilles échancrées': 'Myoema',
+  'Grand Murin / M. de Bechstein': 'autres Myo',
+  'Oreillard sp': 'Plesp',
+  'Grand Rhinolophe': 'autre',
+  'Autres': 'autre',
+}
+
 const SPECIES: Record<GroupKey, string[]> = {
   pipistrelles: [
     'Pip. commune',
@@ -127,7 +144,7 @@ function TrancheDots({
 }) {
   const set = new Set(history)
   return (
-    <div className="flex flex-wrap gap-1">
+    <div className="flex flex-wrap gap-0.5 sm:gap-1">
       {Array.from({ length: nbTranches }, (_, i) => i + 1).map((t) => {
         const filled = set.has(t)
         return (
@@ -135,7 +152,7 @@ function TrancheDots({
             key={t}
             type="button"
             onClick={() => { if (!filled) onAdd(t) }}
-            className={`w-3 h-3 rounded-full transition-all duration-200 ${
+            className={`w-1.5 h-1.5 sm:w-3 sm:h-3 rounded-full transition-all duration-200 ${
               filled
                 ? 'bg-foreground cursor-default'
                 : 'bg-foreground/12 hover:bg-foreground/40 active:bg-foreground/60 cursor-pointer'
@@ -158,29 +175,34 @@ function SpeciesSummary({
   count: GroupCount
   nbTranches: number
 }) {
-  const speciesWithData = count.species.filter((s) => s.count > 0)
-  if (speciesWithData.length === 0) return null
+  const grouped = new Map<string, { total: number; history: number[] }>()
+  for (const s of count.species) {
+    if (s.count === 0) continue
+    const label = SPECIES_LABELS[s.name] ?? s.name
+    const existing = grouped.get(label)
+    if (existing) {
+      existing.total += s.count
+      existing.history = [...new Set([...existing.history, ...s.trancheHistory])].sort((a, b) => a - b)
+    } else {
+      grouped.set(label, { total: s.count, history: [...s.trancheHistory] })
+    }
+  }
+  if (grouped.size === 0) return null
 
   return (
     <div className="flex flex-col gap-2 pt-2 border-t border-foreground/8">
       <span className="text-xs font-medium tracking-wide text-foreground/45">
         Espèces
       </span>
-      {SPECIES[groupKey].map((sp) => {
-        const entry = count.species.find((s) => s.name === sp)
-        const n = entry?.count ?? 0
-        const history = entry?.trancheHistory ?? []
-        if (n === 0) return null
-        return (
-          <div key={sp} className="flex items-center justify-between gap-2">
-            <span className="text-xs text-foreground/70">{sp}</span>
-            <div className="flex items-center gap-2">
-              <span className="text-xs tabular-nums text-foreground/40">{n}</span>
-              <TrancheDots history={history} nbTranches={nbTranches} onAdd={() => {}} />
-            </div>
+      {Array.from(grouped.entries()).map(([label, { total, history }]) => (
+        <div key={label}>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] sm:text-xs text-foreground/70">{label}</span>
+            <span className="text-xs tabular-nums text-foreground/40">{total}</span>
           </div>
-        )
-      })}
+          <TrancheDots history={history} nbTranches={nbTranches} onAdd={() => {}} />
+        </div>
+      ))}
     </div>
   )
 }
@@ -217,7 +239,7 @@ function InlineSpeciesPicker({
               onChange={() => onToggle(sp, tranche)}
               className="w-3.5 h-3.5 rounded border-foreground/20 accent-foreground"
             />
-            <span className="text-xs text-foreground/70">{sp}</span>
+            <span className="text-[10px] sm:text-xs text-foreground/70">{SPECIES_LABELS[sp]}</span>
           </label>
         )
       })}
@@ -285,7 +307,7 @@ function GroupCard({
         <button
           type="button"
           onClick={onMax}
-          className="px-2.5 h-10 rounded-lg border border-foreground/10 text-xs font-medium text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 transition-colors cursor-pointer"
+          className="px-1.5 h-10 rounded-lg border border-foreground/10 text-[10px] font-medium text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 transition-colors cursor-pointer"
         >
           MAX
         </button>
@@ -730,7 +752,7 @@ export default function CompteurScreen() {
       {/* ── Timer card ── */}
       <div className="rounded-xl border border-foreground/8 bg-background p-4 flex flex-col gap-3">
         {/* Tranche bubbles */}
-        <div className="flex gap-1 justify-center">
+        <div className="flex gap-0.5 sm:gap-1 justify-center">
           {Array.from({ length: config.nbTranches }, (_, i) => {
             const t = i + 1
             const done = finished || (started && t < currentTranche)
@@ -738,7 +760,7 @@ export default function CompteurScreen() {
             return (
               <span
                 key={t}
-                className={`w-3 h-3 shrink-0 rounded-full transition-colors duration-300 ${
+                className={`w-1.5 h-1.5 sm:w-3 sm:h-3 shrink-0 rounded-full transition-colors duration-300 ${
                   done
                     ? 'bg-foreground'
                     : active
