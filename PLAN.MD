@@ -13,7 +13,7 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 - [fait] Rendre chaque compteur indépendant (plus de sélection partagée entre groupes ni entre espèces d'un même groupe).
 - Ajouter des tests ciblés pour IndexedDB, la persistance du compteur, la remise à zéro et les exports.
 - Renforcer la validation du formulaire de session.
-- Vérifier le comportement mobile, notamment la synthèse vocale sur iOS Safari.
+- [fait] Vérifier le comportement mobile, notamment la synthèse vocale sur iOS Safari.
 
 ## Phase 2 — Persistance Supabase
 

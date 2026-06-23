@@ -15,7 +15,7 @@ import {
   type SessionData,
 } from '@/lib/idb'
 import { getSiteConfig, type SiteTypeConfig } from '@/lib/site-config'
-import { ChevronDown, ChevronUp, Pause, Play, RotateCcw } from 'lucide-react'
+import { Pause, Play, RotateCcw } from 'lucide-react'
 
 type GroupKey = keyof PointCounts
 
@@ -147,6 +147,84 @@ function TrancheDots({
   )
 }
 
+// ── Species summary (dots for all tranches) ──────────────────────────────────
+
+function SpeciesSummary({
+  groupKey,
+  count,
+  nbTranches,
+}: {
+  groupKey: GroupKey
+  count: GroupCount
+  nbTranches: number
+}) {
+  const speciesWithData = count.species.filter((s) => s.count > 0)
+  if (speciesWithData.length === 0) return null
+
+  return (
+    <div className="flex flex-col gap-2 pt-2 border-t border-foreground/8">
+      <span className="text-xs font-medium tracking-wide text-foreground/45">
+        Espèces
+      </span>
+      {SPECIES[groupKey].map((sp) => {
+        const entry = count.species.find((s) => s.name === sp)
+        const n = entry?.count ?? 0
+        const history = entry?.trancheHistory ?? []
+        if (n === 0) return null
+        return (
+          <div key={sp} className="flex items-center justify-between gap-2">
+            <span className="text-xs text-foreground/70">{sp}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs tabular-nums text-foreground/40">{n}</span>
+              <TrancheDots history={history} nbTranches={nbTranches} onAdd={() => {}} />
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Inline species picker (immediate toggles, no confirm) ────────────────────
+
+function InlineSpeciesPicker({
+  groupKey,
+  count,
+  tranche,
+  onToggle,
+}: {
+  groupKey: GroupKey
+  count: GroupCount
+  tranche: number
+  onToggle: (sp: string, tranche: number) => void
+}) {
+  return (
+    <div className="flex flex-col gap-1 pt-2 border-t border-foreground/8">
+      <span className="text-xs font-medium text-foreground/45">
+        Tranche {tranche}
+      </span>
+      {SPECIES[groupKey].map((sp) => {
+        const entry = count.species.find((s) => s.name === sp)
+        const isChecked = entry?.trancheHistory.includes(tranche) ?? false
+        return (
+          <label
+            key={sp}
+            className="flex items-center gap-2 py-1 rounded-lg hover:bg-foreground/3 active:bg-foreground/6 -mx-1 px-1 transition-colors cursor-pointer select-none"
+          >
+            <input
+              type="checkbox"
+              checked={isChecked}
+              onChange={() => onToggle(sp, tranche)}
+              className="w-3.5 h-3.5 rounded border-foreground/20 accent-foreground"
+            />
+            <span className="text-xs text-foreground/70">{sp}</span>
+          </label>
+        )
+      })}
+    </div>
+  )
+}
+
 // ── Group card ────────────────────────────────────────────────────────────────
 
 function GroupCard({
@@ -157,9 +235,9 @@ function GroupCard({
   onAdd,
   onRemove,
   onMax,
-  onToggle,
-  expanded,
   onAddTranche,
+  detailTranche,
+  onToggleSpecies,
 }: {
   groupKey: GroupKey
   count: GroupCount
@@ -168,9 +246,9 @@ function GroupCard({
   onAdd: () => void
   onRemove: () => void
   onMax: () => void
-  onToggle: () => void
-  expanded: boolean
   onAddTranche: (t: number) => void
+  detailTranche: number | null
+  onToggleSpecies: (sp: string, tranche: number) => void
 }) {
   return (
     <div className="rounded-xl border border-foreground/8 bg-background p-3 flex flex-col gap-2.5">
@@ -178,13 +256,6 @@ function GroupCard({
         <span className="text-base font-bold" style={{ color: GROUP_COLORS[groupKey], fontVariant: 'small-caps' }}>
           {GROUP_LABELS[groupKey]}
         </span>
-        <button
-          type="button"
-          onClick={onToggle}
-          className="text-foreground/30 hover:text-foreground/60 cursor-pointer -mr-0.5"
-        >
-          {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </button>
       </div>
 
       <div className="text-center leading-none select-none">
@@ -221,96 +292,17 @@ function GroupCard({
       </div>
 
       <TrancheDots history={count.trancheHistory} nbTranches={nbTranches} onAdd={onAddTranche} />
-    </div>
-  )
-}
 
-// ── Species detail card ───────────────────────────────────────────────────────
+      <SpeciesSummary groupKey={groupKey} count={count} nbTranches={nbTranches} />
 
-function SpeciesDetailCard({
-  groupKey,
-  count,
-  nbTranches,
-  currentTranche,
-  started,
-  finished,
-  onAddSpecies,
-  onRemoveSpecies,
-  onSpeciesMax,
-  onAddSpeciesTranche,
-}: {
-  groupKey: GroupKey
-  count: GroupCount
-  nbTranches: number
-  currentTranche: number
-  started: boolean
-  finished: boolean
-  onAddSpecies: (sp: string) => void
-  onRemoveSpecies: (sp: string) => void
-  onSpeciesMax: (sp: string) => void
-  onAddSpeciesTranche: (sp: string, t: number) => void
-}) {
-  const totalSpecies = count.species.filter((s) => s.count > 0).length
-  return (
-    <div className="rounded-xl border border-foreground/8 bg-background p-3 flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium tracking-wide text-foreground/55">
-          ↳ {GROUP_LABELS[groupKey]} — détail espèces
-        </span>
-        <span className="text-xs text-foreground/35">sp: {totalSpecies}</span>
-      </div>
-
-      {SPECIES[groupKey].map((sp) => {
-        const entry = count.species.find((s) => s.name === sp)
-        const n = entry?.count ?? 0
-        const history = entry?.trancheHistory ?? []
-        const canAdd = started && (finished || !history.includes(currentTranche))
-        return (
-          <div key={sp} className="flex flex-col gap-1.5">
-            <span
-              className={`text-sm ${n > 0 ? 'text-foreground' : 'text-foreground/40'}`}
-            >
-              {sp}
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => onRemoveSpecies(sp)}
-                disabled={n === 0}
-                className="w-9 h-9 flex items-center justify-center rounded-lg border text-xl text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                style={{ borderColor: GROUP_COLORS[groupKey] }}
-              >
-                −
-              </button>
-              <span
-                className={`flex-1 text-center text-sm tabular-nums font-mono ${
-                  n > 0 ? 'text-foreground font-semibold' : 'text-foreground/20'
-                }`}
-              >
-                {n}
-              </span>
-              <button
-                type="button"
-                onClick={() => onAddSpecies(sp)}
-                disabled={!canAdd}
-                className="w-9 h-9 flex items-center justify-center rounded-lg text-foreground text-xl font-medium hover:brightness-150 disabled:opacity-25 disabled:cursor-not-allowed transition-all cursor-pointer"
-                style={{ backgroundColor: GROUP_COLORS[groupKey] + '26' }}
-              >
-                +
-              </button>
-              <button
-                type="button"
-                onClick={() => onSpeciesMax(sp)}
-                disabled={count.total === 0}
-                className="px-3 h-9 rounded-lg border border-foreground/10 text-xs font-medium text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer"
-              >
-                MAX
-              </button>
-            </div>
-            <TrancheDots history={history} nbTranches={nbTranches} onAdd={(t) => onAddSpeciesTranche(sp, t)} />
-          </div>
-        )
-      })}
+      {detailTranche != null && (
+        <InlineSpeciesPicker
+          groupKey={groupKey}
+          count={count}
+          tranche={detailTranche}
+          onToggle={onToggleSpecies}
+        />
+      )}
     </div>
   )
 }
@@ -348,8 +340,15 @@ export default function CompteurScreen() {
 
   // Counts
   const [counts, setCounts] = useState<PointCounts>(defaultCounts())
-  const [expandedGroups, setExpandedGroups] = useState<Set<GroupKey>>(new Set())
   const [commentaire, setCommentaire] = useState('')
+
+  // Per-group detail tranche (non-null = detail open for that tranche)
+  const [detailTranche, setDetailTranche] = useState<Record<GroupKey, number | null>>({
+    pipistrelles: null,
+    murins: null,
+    serotules: null,
+    autres: null,
+  })
 
   // Load
   useEffect(() => {
@@ -456,6 +455,7 @@ export default function CompteurScreen() {
           clearInterval(timerRef.current!)
           timerRef.current = null
           setFinished(true)
+          setDetailTranche({ pipistrelles: null, murins: null, serotules: null, autres: null })
           announce('Fin du point')
         } else {
           const newStart = new Date()
@@ -465,6 +465,7 @@ export default function CompteurScreen() {
           setCurrentTranche(next)
           setTrancheStartTime(newStart)
           setTrancheElapsed(0)
+          setDetailTranche({ pipistrelles: null, murins: null, serotules: null, autres: null })
           announce(`Tranche ${next}`)
         }
       }
@@ -559,41 +560,88 @@ export default function CompteurScreen() {
     currentTrancheRef.current = 1
     trancheElapsedRef.current = 0
     trancheStartRef.current = null
-    setExpandedGroups(new Set())
+    setDetailTranche({ pipistrelles: null, murins: null, serotules: null, autres: null })
   }
 
   // ── Count handlers ────────────────────────────────────────────────────────
 
-  function handleAdd(group: GroupKey, tranche?: number) {
-    const t = tranche ?? currentTrancheRef.current
+  function handleAdd(group: GroupKey) {
+    const t = currentTrancheRef.current
+    const g = counts[group]
+    if (!g.trancheHistory.includes(t)) {
+      setCounts((prev) => {
+        const g = prev[group]
+        if (g.trancheHistory.includes(t)) return prev
+        return { ...prev, [group]: { ...g, total: g.total + 1, trancheHistory: [...g.trancheHistory, t] } }
+      })
+    }
+    setDetailTranche((prev) => ({ ...prev, [group]: t }))
+  }
+
+  function handleAddTranche(group: GroupKey, tranche: number) {
+    const g = counts[group]
+    if (!g.trancheHistory.includes(tranche)) {
+      setCounts((prev) => {
+        const g = prev[group]
+        if (g.trancheHistory.includes(tranche)) return prev
+        return { ...prev, [group]: { ...g, total: g.total + 1, trancheHistory: [...g.trancheHistory, tranche] } }
+      })
+    }
+    setDetailTranche((prev) => ({ ...prev, [group]: tranche }))
+  }
+
+  function handleToggleSpecies(group: GroupKey, sp: string, tranche: number) {
     setCounts((prev) => {
       const g = prev[group]
-      if (g.trancheHistory.includes(t)) return prev
-      return {
-        ...prev,
-        [group]: {
-          ...g,
-          total: g.total + 1,
-          trancheHistory: [...g.trancheHistory, t],
-        },
+      const existing = g.species.find((s) => s.name === sp)
+      if (existing?.trancheHistory.includes(tranche)) {
+        const species = g.species
+          .map((s) =>
+            s.name === sp
+              ? { ...s, count: s.count - 1, trancheHistory: s.trancheHistory.filter((t) => t !== tranche) }
+              : s
+          )
+          .filter((s) => s.count > 0)
+        return { ...prev, [group]: { ...g, species } }
       }
+      const species = existing
+        ? g.species.map((s) =>
+            s.name === sp
+              ? { ...s, count: s.count + 1, trancheHistory: [...s.trancheHistory, tranche] }
+              : s
+          )
+        : [...g.species, { name: sp, count: 1, trancheHistory: [tranche] }]
+      return { ...prev, [group]: { ...g, species } }
     })
-    setExpandedGroups((prev) => new Set(prev).add(group))
   }
 
   function handleRemove(group: GroupKey) {
     setCounts((prev) => {
       const g = prev[group]
       if (g.total === 0) return prev
+      const lastTranche = g.trancheHistory[g.trancheHistory.length - 1]
       return {
         ...prev,
         [group]: {
           ...g,
           total: g.total - 1,
           trancheHistory: g.trancheHistory.slice(0, -1),
+          species: g.species
+            .map((s) => {
+              if (s.trancheHistory.includes(lastTranche)) {
+                return {
+                  ...s,
+                  count: s.count - 1,
+                  trancheHistory: s.trancheHistory.filter((t) => t !== lastTranche),
+                }
+              }
+              return s
+            })
+            .filter((s) => s.count > 0),
         },
       }
     })
+    setDetailTranche((prev) => ({ ...prev, [group]: null }))
   }
 
   function handleGroupMax(group: GroupKey) {
@@ -602,54 +650,7 @@ export default function CompteurScreen() {
       ...prev,
       [group]: { ...prev[group], total: config.nbTranches, trancheHistory: allTranches },
     }))
-    setExpandedGroups((prev) => new Set(prev).add(group))
-  }
-
-  function handleAddSpecies(group: GroupKey, sp: string, tranche?: number) {
-    const t = tranche ?? currentTrancheRef.current
-    setCounts((prev) => {
-      const g = prev[group]
-      const existing = g.species.find((s) => s.name === sp)
-      if (existing?.trancheHistory.includes(t)) return prev
-      const species = existing
-        ? g.species.map((s) =>
-            s.name === sp
-              ? { ...s, count: s.count + 1, trancheHistory: [...s.trancheHistory, t] }
-              : s
-          )
-        : [...g.species, { name: sp, count: 1, trancheHistory: [t] }]
-      return { ...prev, [group]: { ...g, species } }
-    })
-  }
-
-  function handleRemoveSpecies(group: GroupKey, sp: string) {
-    setCounts((prev) => {
-      const g = prev[group]
-      const existing = g.species.find((s) => s.name === sp)
-      if (!existing || existing.count === 0) return prev
-      const species = g.species.map((s) =>
-        s.name === sp
-          ? { ...s, count: s.count - 1, trancheHistory: s.trancheHistory.slice(0, -1) }
-          : s
-      )
-      return { ...prev, [group]: { ...g, species } }
-    })
-  }
-
-  function handleSpeciesMax(group: GroupKey, sp: string) {
-    setCounts((prev) => {
-      const g = prev[group]
-      if (g.total === 0) return prev
-      const existing = g.species.find((s) => s.name === sp)
-      const species = existing
-        ? g.species.map((s) =>
-            s.name === sp
-              ? { ...s, count: g.total, trancheHistory: [...g.trancheHistory] }
-              : s
-          )
-        : [...g.species, { name: sp, count: g.total, trancheHistory: [...g.trancheHistory] }]
-      return { ...prev, [group]: { ...g, species } }
-    })
+    setDetailTranche((prev) => ({ ...prev, [group]: currentTrancheRef.current }))
   }
 
   async function handleValidate() {
@@ -691,18 +692,6 @@ export default function CompteurScreen() {
       ? `${session.acronyme}-${p2(point.numero)}`
       : '—'
   const progress = (trancheElapsed / config.trancheDurationSec) * 100
-
-  function toggleGroup(group: GroupKey) {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev)
-      if (next.has(group)) {
-        next.delete(group)
-      } else {
-        next.add(group)
-      }
-      return next
-    })
-  }
 
   // ── Render ──
 
@@ -846,7 +835,7 @@ export default function CompteurScreen() {
       {/* ── Group cards ── */}
       <div className="grid grid-cols-2 gap-3 items-start">
         {GROUP_KEYS.map((group) => {
-          const canAdd = started && (finished || !counts[group].trancheHistory.includes(currentTrancheRef.current))
+          const canAdd = started && (finished || !counts[group].trancheHistory.includes(currentTranche))
           return (
             <GroupCard
               key={group}
@@ -857,30 +846,13 @@ export default function CompteurScreen() {
               onAdd={() => handleAdd(group)}
               onRemove={() => handleRemove(group)}
               onMax={() => handleGroupMax(group)}
-              expanded={expandedGroups.has(group)}
-              onToggle={() => toggleGroup(group)}
-              onAddTranche={(t) => handleAdd(group, t)}
+              onAddTranche={(t) => handleAddTranche(group, t)}
+              detailTranche={detailTranche[group]}
+              onToggleSpecies={(sp, t) => handleToggleSpecies(group, sp, t)}
             />
           )
         })}
       </div>
-
-      {/* ── Species detail cards ── */}
-      {GROUP_KEYS.filter((g) => expandedGroups.has(g)).map((group) => (
-        <SpeciesDetailCard
-          key={group}
-          groupKey={group}
-          count={counts[group]}
-          nbTranches={config.nbTranches}
-          currentTranche={currentTranche}
-          started={started}
-          finished={finished}
-          onAddSpecies={(sp) => handleAddSpecies(group, sp)}
-          onRemoveSpecies={(sp) => handleRemoveSpecies(group, sp)}
-          onSpeciesMax={(sp) => handleSpeciesMax(group, sp)}
-          onAddSpeciesTranche={(sp, t) => handleAddSpecies(group, sp, t)}
-        />
-      ))}
 
       {/* ── Comment ── */}
       <div className="flex flex-col gap-1.5">

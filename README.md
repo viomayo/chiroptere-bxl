@@ -13,6 +13,7 @@ L'application est aujourd'hui un prototype local-first fonctionnel :
 - les groupes d'espèces (pipistrelles, murins, sérotules, autres) sont identifiés par des couleurs distinctes (violet, vert, orange, rose) sur les boutons +/− et les badges ;
 - les pastilles de tranches sont cliquables : un clic sur une pastille vide ajoute directement un comptage dans cette tranche, sans passer par le bouton + ;
 - chaque compteur (groupe et espèce) est indépendant : cliquer une pastille dans un groupe ou une espèce n'affecte pas les autres ;
+- le sélecteur d'espèces est intégré en ligne au compteur : cliquer le bouton + d'un groupe ou une pastille de tranche ouvre un choix d'espèces immédiat pour cette tranche, sans accordéon séparé ; un résumé des espèces comptées apparaît sous chaque groupe ;
 - les logos (LCP potentiels) utilisent `loading="eager"` avec `unoptimized` (le PNG contient un chunk propriétaire incompatible avec l'optimiseur Next.js) ;
 - les icônes PWA (manifeste et splash screen) pointent vers `/logo.png` ;
 - la synchronisation vers une base de données Supabase n'est pas encore implémentée.
@@ -39,6 +40,7 @@ La configuration locale nécessite au minimum :
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET=
 ```
 
 ## Commandes utiles
