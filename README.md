@@ -9,11 +9,12 @@ L'application est aujourd'hui un prototype local-first fonctionnel :
 - l'accès est protégé par une connexion Google via Supabase Auth ;
 - les données de terrain sont enregistrées localement dans IndexedDB, dans le navigateur ;
 - un footer avec les crédits des développeurs et leurs liens GitHub est affiché sur toutes les pages ;
-- la création de sessions, les points d'écoute (avec coordonnées X/Y et commentaires prédéfinis), le compteur chronométré, la sauvegarde automatique des brouillons, la remise à zéro, le tableau de bord, les exports CSV/JSON (avec coordonnées) et les bases PWA sont en place ;
+- la création de sessions, les points d'écoute (avec coordonnées X/Y et descriptions de localisation prédéfinies), le compteur chronométré, la sauvegarde automatique des brouillons, la remise à zéro, le tableau de bord, les exports CSV/JSON (avec coordonnées) et les bases PWA sont en place ;
 - les groupes d'espèces (pipistrelles, murins, sérotules, autres) sont identifiés par des couleurs distinctes (violet, vert, orange, rose) sur les boutons +/− et les badges ;
 - les pastilles de tranches sont cliquables : un clic sur une pastille vide ajoute directement un comptage dans cette tranche, sans passer par le bouton + ;
 - chaque compteur (groupe et espèce) est indépendant : cliquer une pastille dans un groupe ou une espèce n'affecte pas les autres ;
 - le sélecteur d'espèces est intégré en ligne au compteur : cliquer le bouton + d'un groupe ou une pastille de tranche ouvre un choix d'espèces immédiat pour cette tranche, sans accordéon séparé ; un résumé des espèces comptées apparaît sous chaque groupe ;
+- la localisation de chaque point (description prédéfinie issue des données CSV) est affichée en lecture seule dans le compteur, séparée du champ de remarques libres de l'observateur ;
 - les logos (LCP potentiels) utilisent `loading="eager"` avec `unoptimized` (le PNG contient un chunk propriétaire incompatible avec l'optimiseur Next.js) ;
 - les icônes PWA (manifeste et splash screen) pointent vers `/logo.png` ;
 - la synchronisation vers une base de données Supabase n'est pas encore implémentée.
@@ -60,7 +61,7 @@ Les exports sont générés côté client :
 - CSV détaillé avec sessions, points, groupes, espèces et tranches ;
 - JSON complet de la session et des points locaux.
 
-Chaque site dispose de points d'écoute prédéfinis avec coordonnées (X, Y) et descriptions. Lors de la création d'une session, le nombre de points est automatiquement prérempli et les points sont créés avec leurs coordonnées et commentaires dans IndexedDB.
+Chaque site dispose de points d'écoute prédéfinis avec coordonnées (X, Y) et descriptions de localisation. Lors de la création d'une session, le nombre de points est automatiquement prérempli et les points sont créés avec leurs coordonnées et description de localisation dans IndexedDB. La description est affichée en lecture seule dans le compteur, tandis que le champ Remarques reste libre pour l'observateur.
 
 ## Limites connues
 

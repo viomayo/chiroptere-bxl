@@ -340,6 +340,7 @@ export default function CompteurScreen() {
 
   // Counts
   const [counts, setCounts] = useState<PointCounts>(defaultCounts())
+  const [localisation, setLocalisation] = useState('')
   const [commentaire, setCommentaire] = useState('')
 
   // Per-group detail tranche (non-null = detail open for that tranche)
@@ -367,6 +368,7 @@ export default function CompteurScreen() {
       setConfig(cfg)
       configRef.current = cfg
       setCounts(pt.counts)
+      setLocalisation(pt.localisation)
       setCommentaire(pt.commentaire)
       if (pt.timerState) {
         const start = pt.timerState.pointStartTime ? new Date(pt.timerState.pointStartTime) : null
@@ -420,6 +422,7 @@ export default function CompteurScreen() {
     const draft: PointData = {
       ...point,
       counts,
+      localisation,
       commentaire,
       nbEspeces: countSpecies(counts),
       timerState,
@@ -434,6 +437,7 @@ export default function CompteurScreen() {
     loading,
     point,
     counts,
+    localisation,
     commentaire,
     started,
     paused,
@@ -542,6 +546,7 @@ export default function CompteurScreen() {
         nbEspeces: 0,
         statut: 'non_demarre',
         counts: emptyCounts,
+        localisation,
         commentaire: '',
         timerState: null,
       }
@@ -665,6 +670,7 @@ export default function CompteurScreen() {
       nbEspeces,
       statut: 'termine',
       counts,
+      localisation,
       commentaire,
       timerState: buildTimerState({
         started: true,
@@ -853,6 +859,16 @@ export default function CompteurScreen() {
           )
         })}
       </div>
+
+      {/* ── Localisation ── */}
+      {localisation && (
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium">Localisation du point</label>
+          <p className="text-sm text-foreground/70 leading-relaxed rounded-lg border border-foreground/8 bg-foreground/[0.02] px-3 py-2.5">
+            {localisation}
+          </p>
+        </div>
+      )}
 
       {/* ── Comment ── */}
       <div className="flex flex-col gap-1.5">

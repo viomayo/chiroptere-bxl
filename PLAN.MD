@@ -14,6 +14,7 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 - Ajouter des tests ciblés pour IndexedDB, la persistance du compteur, la remise à zéro et les exports.
 - Renforcer la validation du formulaire de session.
 - [fait] Vérifier le comportement mobile, notamment la synthèse vocale sur iOS Safari.
+- [fait] Séparer la localisation du point (description prédéfinie) des remarques libres de l'observateur : nouveau champ `localisation` dans `PointData`, affiché en lecture seule au-dessus du champ Remarques dans le compteur, et dans l'export CSV.
 
 ## Phase 2 — Persistance Supabase
 

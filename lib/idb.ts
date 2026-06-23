@@ -58,6 +58,7 @@ export interface PointData {
   nbEspeces: number
   statut: 'non_demarre' | 'en_cours' | 'termine'
   counts: PointCounts
+  localisation: string
   commentaire: string
   timerState: PointTimerState | null
   coordX: number | null
@@ -130,6 +131,7 @@ function hydratePoint(raw: Record<string, unknown>): PointData {
     nbEspeces: (raw.nbEspeces as number) ?? 0,
     statut: (raw.statut as PointData['statut']) ?? 'non_demarre',
     counts,
+    localisation: (raw.localisation as string) ?? '',
     commentaire: (raw.commentaire as string) ?? '',
     timerState: timerState ?? null,
     coordX: (raw.coordX as number | null) ?? null,
@@ -219,6 +221,7 @@ export async function initSessionPoints(session: SessionData): Promise<PointData
     nbEspeces: 0,
     statut: 'non_demarre' as const,
     counts: defaultCounts(),
+    localisation: '',
     commentaire: '',
     timerState: null,
     coordX: null,
