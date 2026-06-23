@@ -60,6 +60,8 @@ export interface PointData {
   counts: PointCounts
   commentaire: string
   timerState: PointTimerState | null
+  coordX: number | null
+  coordY: number | null
 }
 
 export function defaultCounts(): PointCounts {
@@ -130,6 +132,8 @@ function hydratePoint(raw: Record<string, unknown>): PointData {
     counts,
     commentaire: (raw.commentaire as string) ?? '',
     timerState: timerState ?? null,
+    coordX: (raw.coordX as number | null) ?? null,
+    coordY: (raw.coordY as number | null) ?? null,
   }
 }
 
@@ -138,6 +142,17 @@ export async function saveSession(session: SessionData): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_SESSIONS, 'readwrite')
     tx.objectStore(STORE_SESSIONS).put(session)
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+export async function saveSessionWithPoints(session: SessionData, points: PointData[]): Promise<void> {
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([STORE_SESSIONS, STORE_POINTS], 'readwrite')
+    tx.objectStore(STORE_SESSIONS).put(session)
+    points.forEach((p) => tx.objectStore(STORE_POINTS).put(p))
     tx.oncomplete = () => resolve()
     tx.onerror = () => reject(tx.error)
   })
@@ -206,6 +221,8 @@ export async function initSessionPoints(session: SessionData): Promise<PointData
     counts: defaultCounts(),
     commentaire: '',
     timerState: null,
+    coordX: null,
+    coordY: null,
   }))
 
   const db = await openDB()

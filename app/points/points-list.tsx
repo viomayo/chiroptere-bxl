@@ -87,6 +87,8 @@ function exportCSV(session: SessionData, points: PointData[]) {
     'nb_especes',
     'statut',
     'point_commentaire',
+    'coord_x',
+    'coord_y',
     'niveau',
     'groupe',
     'espece',
@@ -111,6 +113,8 @@ function exportCSV(session: SessionData, points: PointData[]) {
       p.nbEspeces,
       p.statut,
       p.commentaire,
+      p.coordX,
+      p.coordY,
     ]
 
     const observationRows: string[] = []

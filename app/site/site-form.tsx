@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check } from 'lucide-react'
-import { saveSession, type SessionData } from '@/lib/idb'
+import { Check, MapPin } from 'lucide-react'
+import { saveSession, saveSessionWithPoints, defaultCounts, type SessionData, type PointData } from '@/lib/idb'
+import { SITE_POINTS } from '@/lib/site-points'
 
 const PROTOCOLES = ['Plan d\'eau (2 min)', 'Transect forestier (3 min)'] as const
 
@@ -77,13 +78,17 @@ export default function SiteForm({ compteurPrincipal }: { compteurPrincipal: str
     setTypeSite(type)
     setNomSite('')
     setAcronyme('')
+    setNbPointsEcoute('')
   }
 
   function handleNomSiteChange(nom: string) {
     setNomSite(nom)
     const sites = SITES_BY_PROTOCOLE[typeSite] ?? []
     const site = sites.find((s) => s.nom === nom)
-    setAcronyme(site ? site.acronyme : '')
+    const acr = site ? site.acronyme : ''
+    setAcronyme(acr)
+    const pts = acr ? SITE_POINTS[acr]?.[typeSite] : undefined
+    setNbPointsEcoute(pts ? pts.length : 1)
   }
 
   function toggleDetecteur(d: string) {
@@ -96,8 +101,11 @@ export default function SiteForm({ compteurPrincipal }: { compteurPrincipal: str
     e.preventDefault()
     setError('')
 
+    const sessionId = crypto.randomUUID()
+    const nbPoints = typeof nbPointsEcoute === 'number' ? nbPointsEcoute : 0
+
     const session: SessionData = {
-      id: crypto.randomUUID(),
+      id: sessionId,
       typeSite,
       nomSite,
       acronyme,
@@ -105,7 +113,7 @@ export default function SiteForm({ compteurPrincipal }: { compteurPrincipal: str
       finSession,
       compteurPrincipal,
       autresCompteurs,
-      nbPointsEcoute: typeof nbPointsEcoute === 'number' ? nbPointsEcoute : 0,
+      nbPointsEcoute: nbPoints,
       detecteurs,
       commentaire,
       createdAt: new Date().toISOString(),
@@ -113,7 +121,26 @@ export default function SiteForm({ compteurPrincipal }: { compteurPrincipal: str
     }
 
     try {
-      await saveSession(session)
+      const predefined = acronyme ? SITE_POINTS[acronyme]?.[typeSite] : undefined
+      if (predefined && predefined.length > 0) {
+        const points: PointData[] = predefined.slice(0, nbPoints).map((p, i) => ({
+          id: `${sessionId}-pt-${i + 1}`,
+          sessionId,
+          numero: p.numero,
+          heureDebut: null,
+          heureFin: null,
+          nbEspeces: 0,
+          statut: 'non_demarre' as const,
+          counts: defaultCounts(),
+          commentaire: p.commentaire,
+          timerState: null,
+          coordX: p.x,
+          coordY: p.y,
+        }))
+        await saveSessionWithPoints(session, points)
+      } else {
+        await saveSession(session)
+      }
       router.push('/points')
     } catch {
       setError('Erreur lors de la sauvegarde locale.')
@@ -122,6 +149,15 @@ export default function SiteForm({ compteurPrincipal }: { compteurPrincipal: str
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+      {acronyme && typeSite && SITE_POINTS[acronyme]?.[typeSite] && (
+        <div className="flex items-center gap-2 text-xs text-foreground/50 bg-foreground/[0.03] rounded-lg px-3 py-2">
+          <MapPin size={13} />
+          <span>
+            {SITE_POINTS[acronyme][typeSite]!.length} point{SITE_POINTS[acronyme][typeSite]!.length > 1 ? 's' : ''} prédéfini{SITE_POINTS[acronyme][typeSite]!.length > 1 ? 's' : ''} avec coordonnées et descriptions
+          </span>
+        </div>
+      )}
+
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium">
           Type de site <span className="text-foreground/40">*</span>

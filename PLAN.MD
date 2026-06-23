@@ -27,9 +27,9 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 
 ## Phase 4 — Exports et qualité des données
 
-- Ajouter les coordonnées des points avant de réintroduire un export GeoJSON.
-- Valider plus strictement la structure des exports CSV et JSON.
-- Prévoir un outil d'import ou de récupération si nécessaire.
+- [fait] Ajouter les coordonnées des points avant de réintroduire un export GeoJSON.
+- [fait] Intégrer les 319 points d'écoute prédéfinis (coordonnées X/Y + descriptions) directement dans la configuration des sites. Le nombre de points et leurs données sont automatiquement utilisés lors de la création d'une session.
+- [fait] Ajouter les coordonnées des points (`coord_x`, `coord_y`) dans l'export CSV.
 
 ## Phase 5 — Documentation et maintenance
 

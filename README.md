@@ -9,7 +9,7 @@ L'application est aujourd'hui un prototype local-first fonctionnel :
 - l'accès est protégé par une connexion Google via Supabase Auth ;
 - les données de terrain sont enregistrées localement dans IndexedDB, dans le navigateur ;
 - un footer avec les crédits des développeurs et leurs liens GitHub est affiché sur toutes les pages ;
-- la création de sessions, les points d'écoute, le compteur chronométré, la sauvegarde automatique des brouillons, la remise à zéro, le tableau de bord, les exports CSV/JSON et les bases PWA sont en place ;
+- la création de sessions, les points d'écoute (avec coordonnées X/Y et commentaires prédéfinis), le compteur chronométré, la sauvegarde automatique des brouillons, la remise à zéro, le tableau de bord, les exports CSV/JSON (avec coordonnées) et les bases PWA sont en place ;
 - les logos (LCP potentiels) utilisent `loading="eager"` avec `unoptimized` (le PNG contient un chunk propriétaire incompatible avec l'optimiseur Next.js) ;
 - les icônes PWA (manifeste et splash screen) pointent vers `/logo.png` ;
 - la synchronisation vers une base de données Supabase n'est pas encore implémentée.
@@ -55,13 +55,14 @@ Les exports sont générés côté client :
 - CSV détaillé avec sessions, points, groupes, espèces et tranches ;
 - JSON complet de la session et des points locaux.
 
+Chaque site dispose de points d'écoute prédéfinis avec coordonnées (X, Y) et descriptions. Lors de la création d'une session, le nombre de points est automatiquement prérempli et les points sont créés avec leurs coordonnées et commentaires dans IndexedDB.
+
 ## Limites connues
 
 - Pas encore de persistance Supabase pour les observations.
 - Pas de récupération multi-appareil.
 - Pas encore de migrations de base de données.
 - Pas encore de tests automatisés.
-- Pas de GeoJSON tant que les points n'ont pas de coordonnées.
 
 ## Démo
 
