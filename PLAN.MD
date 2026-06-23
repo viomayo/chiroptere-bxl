@@ -8,6 +8,9 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 
 - [fait] Ajouter `loading="eager"` et `unoptimized` sur les logos (chunk PNG incompatible avec l'optimiseur Next.js).
 - [fait] Rattraper `public/logo.png` manquant dans git et unifier les icônes PWA sur `/logo.png`.
+- [fait] Colorer les groupes d'espèces (violet pipistrelles, vert murins, orange sérotules, rose autres) sur les boutons +/− et badges de la liste des points.
+- [fait] Rendre les pastilles de tranches cliquables : un clic ajoute directement un comptage dans cette tranche, sans sélection préalable.
+- [fait] Rendre chaque compteur indépendant (plus de sélection partagée entre groupes ni entre espèces d'un même groupe).
 - Ajouter des tests ciblés pour IndexedDB, la persistance du compteur, la remise à zéro et les exports.
 - Renforcer la validation du formulaire de session.
 - Vérifier le comportement mobile, notamment la synthèse vocale sur iOS Safari.

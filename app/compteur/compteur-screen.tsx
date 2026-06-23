@@ -26,6 +26,13 @@ const GROUP_LABELS: Record<GroupKey, string> = {
   autres: 'Autres',
 }
 
+const GROUP_COLORS: Record<GroupKey, string> = {
+  pipistrelles: '#8b5cf6',
+  murins: '#22c55e',
+  serotules: '#f97316',
+  autres: '#ec4899',
+}
+
 const GROUP_KEYS: GroupKey[] = ['pipistrelles', 'murins', 'serotules', 'autres']
 
 const SPECIES: Record<GroupKey, string[]> = {
@@ -109,18 +116,33 @@ function buildTimerState({
 
 // ── Tranche dots ──────────────────────────────────────────────────────────────
 
-function TrancheDots({ history, nbTranches }: { history: number[]; nbTranches: number }) {
+function TrancheDots({
+  history,
+  nbTranches,
+  onAdd,
+}: {
+  history: number[]
+  nbTranches: number
+  onAdd: (t: number) => void
+}) {
   const set = new Set(history)
   return (
     <div className="flex flex-wrap gap-1">
-      {Array.from({ length: nbTranches }, (_, i) => i + 1).map((t) => (
-        <span
-          key={t}
-          className={`w-2 h-2 rounded-full transition-colors duration-200 ${
-            set.has(t) ? 'bg-foreground' : 'bg-foreground/12'
-          }`}
-        />
-      ))}
+      {Array.from({ length: nbTranches }, (_, i) => i + 1).map((t) => {
+        const filled = set.has(t)
+        return (
+          <button
+            key={t}
+            type="button"
+            onClick={() => { if (!filled) onAdd(t) }}
+            className={`w-3 h-3 rounded-full transition-all duration-200 ${
+              filled
+                ? 'bg-foreground cursor-default'
+                : 'bg-foreground/12 hover:bg-foreground/40 active:bg-foreground/60 cursor-pointer'
+            }`}
+          />
+        )
+      })}
     </div>
   )
 }
@@ -137,6 +159,7 @@ function GroupCard({
   onMax,
   onToggle,
   expanded,
+  onAddTranche,
 }: {
   groupKey: GroupKey
   count: GroupCount
@@ -147,11 +170,12 @@ function GroupCard({
   onMax: () => void
   onToggle: () => void
   expanded: boolean
+  onAddTranche: (t: number) => void
 }) {
   return (
     <div className="rounded-xl border border-foreground/8 bg-background p-3 flex flex-col gap-2.5">
       <div className="flex items-center justify-between min-h-4.5">
-        <span className="text-xs font-medium text-foreground/55">
+        <span className="text-base font-bold" style={{ color: GROUP_COLORS[groupKey], fontVariant: 'small-caps' }}>
           {GROUP_LABELS[groupKey]}
         </span>
         <button
@@ -173,7 +197,8 @@ function GroupCard({
           type="button"
           onClick={onRemove}
           disabled={count.total === 0}
-          className="flex-1 h-10 rounded-lg border border-foreground/10 text-xl text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer"
+          className="flex-1 h-10 rounded-lg border text-xl text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer"
+          style={{ borderColor: GROUP_COLORS[groupKey] }}
         >
           −
         </button>
@@ -181,7 +206,8 @@ function GroupCard({
           type="button"
           onClick={onAdd}
           disabled={!canAdd}
-          className="flex-1 h-10 rounded-lg bg-foreground/8 text-foreground text-xl font-medium hover:bg-foreground/12 active:bg-foreground/16 disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer"
+          className="flex-1 h-10 rounded-lg text-foreground text-xl font-medium hover:brightness-150 disabled:opacity-25 disabled:cursor-not-allowed transition-all cursor-pointer"
+          style={{ backgroundColor: GROUP_COLORS[groupKey] + '26' }}
         >
           +
         </button>
@@ -194,7 +220,7 @@ function GroupCard({
         </button>
       </div>
 
-      <TrancheDots history={count.trancheHistory} nbTranches={nbTranches} />
+      <TrancheDots history={count.trancheHistory} nbTranches={nbTranches} onAdd={onAddTranche} />
     </div>
   )
 }
@@ -211,6 +237,7 @@ function SpeciesDetailCard({
   onAddSpecies,
   onRemoveSpecies,
   onSpeciesMax,
+  onAddSpeciesTranche,
 }: {
   groupKey: GroupKey
   count: GroupCount
@@ -221,6 +248,7 @@ function SpeciesDetailCard({
   onAddSpecies: (sp: string) => void
   onRemoveSpecies: (sp: string) => void
   onSpeciesMax: (sp: string) => void
+  onAddSpeciesTranche: (sp: string, t: number) => void
 }) {
   const totalSpecies = count.species.filter((s) => s.count > 0).length
   return (
@@ -249,7 +277,8 @@ function SpeciesDetailCard({
                 type="button"
                 onClick={() => onRemoveSpecies(sp)}
                 disabled={n === 0}
-                className="w-9 h-9 flex items-center justify-center rounded-lg border border-foreground/10 text-xl text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                className="w-9 h-9 flex items-center justify-center rounded-lg border text-xl text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                style={{ borderColor: GROUP_COLORS[groupKey] }}
               >
                 −
               </button>
@@ -264,7 +293,8 @@ function SpeciesDetailCard({
                 type="button"
                 onClick={() => onAddSpecies(sp)}
                 disabled={!canAdd}
-                className="w-9 h-9 flex items-center justify-center rounded-lg bg-foreground/8 text-foreground text-xl font-medium hover:bg-foreground/12 active:bg-foreground/16 disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                className="w-9 h-9 flex items-center justify-center rounded-lg text-foreground text-xl font-medium hover:brightness-150 disabled:opacity-25 disabled:cursor-not-allowed transition-all cursor-pointer"
+                style={{ backgroundColor: GROUP_COLORS[groupKey] + '26' }}
               >
                 +
               </button>
@@ -277,7 +307,7 @@ function SpeciesDetailCard({
                 MAX
               </button>
             </div>
-            <TrancheDots history={history} nbTranches={nbTranches} />
+            <TrancheDots history={history} nbTranches={nbTranches} onAdd={(t) => onAddSpeciesTranche(sp, t)} />
           </div>
         )
       })}
@@ -534,17 +564,17 @@ export default function CompteurScreen() {
 
   // ── Count handlers ────────────────────────────────────────────────────────
 
-  function handleAdd(group: GroupKey) {
-    const tranche = currentTrancheRef.current
+  function handleAdd(group: GroupKey, tranche?: number) {
+    const t = tranche ?? currentTrancheRef.current
     setCounts((prev) => {
       const g = prev[group]
-      if (g.trancheHistory.includes(tranche)) return prev
+      if (g.trancheHistory.includes(t)) return prev
       return {
         ...prev,
         [group]: {
           ...g,
           total: g.total + 1,
-          trancheHistory: [...g.trancheHistory, tranche],
+          trancheHistory: [...g.trancheHistory, t],
         },
       }
     })
@@ -575,19 +605,19 @@ export default function CompteurScreen() {
     setExpandedGroups((prev) => new Set(prev).add(group))
   }
 
-  function handleAddSpecies(group: GroupKey, sp: string) {
-    const tranche = currentTrancheRef.current
+  function handleAddSpecies(group: GroupKey, sp: string, tranche?: number) {
+    const t = tranche ?? currentTrancheRef.current
     setCounts((prev) => {
       const g = prev[group]
       const existing = g.species.find((s) => s.name === sp)
-      if (existing?.trancheHistory.includes(tranche)) return prev
+      if (existing?.trancheHistory.includes(t)) return prev
       const species = existing
         ? g.species.map((s) =>
             s.name === sp
-              ? { ...s, count: s.count + 1, trancheHistory: [...s.trancheHistory, tranche] }
+              ? { ...s, count: s.count + 1, trancheHistory: [...s.trancheHistory, t] }
               : s
           )
-        : [...g.species, { name: sp, count: 1, trancheHistory: [tranche] }]
+        : [...g.species, { name: sp, count: 1, trancheHistory: [t] }]
       return { ...prev, [group]: { ...g, species } }
     })
   }
@@ -816,8 +846,7 @@ export default function CompteurScreen() {
       {/* ── Group cards ── */}
       <div className="grid grid-cols-2 gap-3 items-start">
         {GROUP_KEYS.map((group) => {
-          const canAdd =
-            started && (finished || !counts[group].trancheHistory.includes(currentTranche))
+          const canAdd = started && (finished || !counts[group].trancheHistory.includes(currentTrancheRef.current))
           return (
             <GroupCard
               key={group}
@@ -830,6 +859,7 @@ export default function CompteurScreen() {
               onMax={() => handleGroupMax(group)}
               expanded={expandedGroups.has(group)}
               onToggle={() => toggleGroup(group)}
+              onAddTranche={(t) => handleAdd(group, t)}
             />
           )
         })}
@@ -848,6 +878,7 @@ export default function CompteurScreen() {
           onAddSpecies={(sp) => handleAddSpecies(group, sp)}
           onRemoveSpecies={(sp) => handleRemoveSpecies(group, sp)}
           onSpeciesMax={(sp) => handleSpeciesMax(group, sp)}
+          onAddSpeciesTranche={(sp, t) => handleAddSpecies(group, sp, t)}
         />
       ))}
 

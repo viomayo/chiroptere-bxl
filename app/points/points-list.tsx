@@ -17,6 +17,13 @@ const GROUP_LABELS: Record<GroupKey, string> = {
   autres: 'Autres',
 }
 
+const GROUP_COLORS: Record<GroupKey, string> = {
+  pipistrelles: '#8b5cf6',
+  murins: '#22c55e',
+  serotules: '#f97316',
+  autres: '#ec4899',
+}
+
 const STATUT_LABEL: Record<Statut, string> = {
   non_demarre: 'Non démarré',
   en_cours: 'En cours',
@@ -41,13 +48,11 @@ function formatTime(iso: string | null): string {
   return d.toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' })
 }
 
-function getGroupTotals(counts: PointCounts): { label: string; total: number }[] {
-  return [
-    { label: 'Pipistrelles', total: counts.pipistrelles.total },
-    { label: 'Murins', total: counts.murins.total },
-    { label: 'Sérotules', total: counts.serotules.total },
-    { label: 'Autres', total: counts.autres.total },
-  ].filter((g) => g.total > 0)
+function getGroupTotals(counts: PointCounts): { key: GroupKey; label: string; total: number }[] {
+  const keys: GroupKey[] = ['pipistrelles', 'murins', 'serotules', 'autres']
+  return keys
+    .map((key) => ({ key, label: GROUP_LABELS[key], total: counts[key].total }))
+    .filter((g) => g.total > 0)
 }
 
 function downloadBlob(content: string, filename: string, mime: string) {
@@ -267,10 +272,11 @@ export default function PointsList() {
                   {groups.map((g) => (
                     <span
                       key={g.label}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-foreground/12 text-xs text-foreground/60"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs"
+                      style={{ borderColor: GROUP_COLORS[g.key] + '40', color: GROUP_COLORS[g.key] }}
                     >
                       {g.label.slice(0, 3)}
-                      <span className="font-semibold text-foreground/80">{g.total}</span>
+                      <span className="font-semibold">{g.total}</span>
                     </span>
                   ))}
                 </div>
