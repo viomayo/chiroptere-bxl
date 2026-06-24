@@ -23,6 +23,7 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 - [fait] Ajouter le mode MAX : remplit toutes les tranches d'un groupe et ouvre automatiquement le sélecteur d'espèces à chaque nouvelle tranche.
 - [fait] Activer l'enregistrement du service worker (`register: true`) pour le fonctionnement hors-ligne.
 - [fait] Corriger le label des espèces : passage des acronymes (PippiT, Myodau…) aux noms français complets (Pipistrelle commune, Murin de Daubenton…).
+- [fait] Ajouter l'icône `apple-touch-icon` pour l'installabilité PWA sur iOS.
 
 ## Phase 2 — Persistance Supabase
 
