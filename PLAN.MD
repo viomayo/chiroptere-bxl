@@ -24,6 +24,8 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 - [fait] Activer l'enregistrement du service worker (`register: true`) pour le fonctionnement hors-ligne.
 - [fait] Corriger le label des espèces : passage des acronymes (PippiT, Myodau…) aux noms français complets (Pipistrelle commune, Murin de Daubenton…).
 - [fait] Ajouter l'icône `apple-touch-icon` pour l'installabilité PWA sur iOS.
+- [fait] Ajouter les logs de cycle de vie du SW (install, activate, message) pour le débogage.
+- [fait] Ajouter la page `/sw-status` pour diagnostiquer l'enregistrement et l'état du service worker.
 
 ## Phase 2 — Persistance Supabase
 

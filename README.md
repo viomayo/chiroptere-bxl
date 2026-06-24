@@ -31,6 +31,7 @@ L'application est aujourd'hui un prototype local-first fonctionnel :
 - `/site` : création d'une nouvelle session
 - `/points` : liste des points d'écoute de la session
 - `/compteur` : compteur chronométré pour un point
+- `/sw-status` : diagnostic du service worker (enregistrement, état, caches)
 - `/auth/callback` : retour OAuth Supabase
 
 ## Installation locale
