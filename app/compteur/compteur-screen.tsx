@@ -36,20 +36,18 @@ const GROUP_COLORS: Record<GroupKey, string> = {
 const GROUP_KEYS: GroupKey[] = ['pipistrelles', 'murins', 'serotules', 'autres']
 
 const SPECIES_LABELS: Record<string, string> = {
-  'Pip. commune': 'PippiT',
-  'Pip. de Nathusius/Kuhl': 'Pipnat/Pipkuh',
-  'Pip. pygmée': 'Pippyg',
-  'Sérotine commune': 'Eptser',
-  'Noctule de Leisler': 'Nyclei',
-  'Noctule commune': 'Nycnoc',
-  'M. de Daubenton': 'Myodau',
-  'M. de Natterer': 'Myonat',
-  'M. museaux sombres': 'autres Myo',
-  'M. à oreilles échancrées': 'Myoema',
-  'Grand Murin / M. de Bechstein': 'autres Myo',
-  'Oreillard sp': 'Plesp',
-  'Grand Rhinolophe': 'autre',
-  'Autres': 'autre',
+  'Pip. commune': 'Pipistrelle commune',
+  'Pip. de Nathusius/Kuhl': 'Pipistrelle de Nathusius/Kuhl',
+  'Pip. pygmée': 'Pipistrelle pygmée',
+  'Sérotine commune': 'Sérotine commune',
+  'Noctule de Leisler': 'Noctule de Leisler',
+  'Noctule commune': 'Noctule commune',
+  'M. de Daubenton': 'Murin de Daubenton',
+  'M. de Natterer': 'Murin de Natterer',
+  'M. à oreilles échancrées': 'Murin à oreilles échancrées',
+  'Autres murins': 'Autres murins',
+  'Oreillard sp': 'Oreillard sp.',
+  'Autres': 'Autres',
 }
 
 const SPECIES: Record<GroupKey, string[]> = {
@@ -61,9 +59,8 @@ const SPECIES: Record<GroupKey, string[]> = {
   murins: [
     'M. de Daubenton',
     'M. de Natterer',
-    'M. museaux sombres',
     'M. à oreilles échancrées',
-    'Grand Murin / M. de Bechstein',
+    'Autres murins',
   ],
   serotules: [
     'Sérotine commune',
@@ -72,7 +69,6 @@ const SPECIES: Record<GroupKey, string[]> = {
   ],
   autres: [
     'Oreillard sp',
-    'Grand Rhinolophe',
     'Autres',
   ],
 }
@@ -254,6 +250,7 @@ function GroupCard({
   count,
   nbTranches,
   canAdd,
+  canRemove,
   onAdd,
   onRemove,
   onMax,
@@ -265,6 +262,7 @@ function GroupCard({
   count: GroupCount
   nbTranches: number
   canAdd: boolean
+  canRemove: boolean
   onAdd: () => void
   onRemove: () => void
   onMax: () => void
@@ -289,7 +287,7 @@ function GroupCard({
         <button
           type="button"
           onClick={onRemove}
-          disabled={count.total === 0}
+          disabled={!canRemove}
           className="flex-1 h-10 rounded-lg border text-xl text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer"
           style={{ borderColor: GROUP_COLORS[groupKey] }}
         >
@@ -372,6 +370,18 @@ export default function CompteurScreen() {
     serotules: null,
     autres: null,
   })
+
+  // MAX-opened species picker (toggles apply to all tranches)
+  const [maxMode, setMaxMode] = useState<Record<GroupKey, boolean>>({
+    pipistrelles: false,
+    murins: false,
+    serotules: false,
+    autres: false,
+  })
+
+  const maxModeRef = useRef(maxMode)
+
+  useEffect(() => { maxModeRef.current = maxMode }, [maxMode])
 
   // Load
   useEffect(() => {
@@ -482,6 +492,7 @@ export default function CompteurScreen() {
           timerRef.current = null
           setFinished(true)
           setDetailTranche({ pipistrelles: null, murins: null, serotules: null, autres: null })
+          setMaxMode({ pipistrelles: false, murins: false, serotules: false, autres: false })
           announce('Fin du point')
         } else {
           const newStart = new Date()
@@ -491,7 +502,13 @@ export default function CompteurScreen() {
           setCurrentTranche(next)
           setTrancheStartTime(newStart)
           setTrancheElapsed(0)
-          setDetailTranche({ pipistrelles: null, murins: null, serotules: null, autres: null })
+          const newDetail: Record<GroupKey, number | null> = {
+            pipistrelles: null, murins: null, serotules: null, autres: null,
+          }
+          for (const g of GROUP_KEYS) {
+            if (maxModeRef.current[g]) newDetail[g] = next
+          }
+          setDetailTranche(newDetail)
           announce(`Tranche ${next}`)
         }
       }
@@ -588,6 +605,7 @@ export default function CompteurScreen() {
     trancheElapsedRef.current = 0
     trancheStartRef.current = null
     setDetailTranche({ pipistrelles: null, murins: null, serotules: null, autres: null })
+    setMaxMode({ pipistrelles: false, murins: false, serotules: false, autres: false })
   }
 
   // ── Count handlers ────────────────────────────────────────────────────────
@@ -602,6 +620,7 @@ export default function CompteurScreen() {
         return { ...prev, [group]: { ...g, total: g.total + 1, trancheHistory: [...g.trancheHistory, t] } }
       })
     }
+    setMaxMode((prev) => ({ ...prev, [group]: false }))
     setDetailTranche((prev) => ({ ...prev, [group]: t }))
   }
 
@@ -643,23 +662,23 @@ export default function CompteurScreen() {
   }
 
   function handleRemove(group: GroupKey) {
+    const tranche = currentTrancheRef.current
     setCounts((prev) => {
       const g = prev[group]
-      if (g.total === 0) return prev
-      const lastTranche = g.trancheHistory[g.trancheHistory.length - 1]
+      if (g.total === 0 || !g.trancheHistory.includes(tranche)) return prev
       return {
         ...prev,
         [group]: {
           ...g,
           total: g.total - 1,
-          trancheHistory: g.trancheHistory.slice(0, -1),
+          trancheHistory: g.trancheHistory.filter((t) => t !== tranche),
           species: g.species
             .map((s) => {
-              if (s.trancheHistory.includes(lastTranche)) {
+              if (s.trancheHistory.includes(tranche)) {
                 return {
                   ...s,
                   count: s.count - 1,
-                  trancheHistory: s.trancheHistory.filter((t) => t !== lastTranche),
+                  trancheHistory: s.trancheHistory.filter((t) => t !== tranche),
                 }
               }
               return s
@@ -672,11 +691,17 @@ export default function CompteurScreen() {
   }
 
   function handleGroupMax(group: GroupKey) {
+    if (maxMode[group]) {
+      setMaxMode((prev) => ({ ...prev, [group]: false }))
+      setDetailTranche((prev) => ({ ...prev, [group]: null }))
+      return
+    }
     const allTranches = Array.from({ length: config.nbTranches }, (_, i) => i + 1)
     setCounts((prev) => ({
       ...prev,
       [group]: { ...prev[group], total: config.nbTranches, trancheHistory: allTranches },
     }))
+    setMaxMode((prev) => ({ ...prev, [group]: true }))
     setDetailTranche((prev) => ({ ...prev, [group]: currentTrancheRef.current }))
   }
 
@@ -864,6 +889,7 @@ export default function CompteurScreen() {
       <div className="grid grid-cols-2 gap-3 items-start">
         {GROUP_KEYS.map((group) => {
           const canAdd = started && (finished || !counts[group].trancheHistory.includes(currentTranche))
+          const canRemove = started && counts[group].trancheHistory.includes(currentTranche)
           return (
             <GroupCard
               key={group}
@@ -871,6 +897,7 @@ export default function CompteurScreen() {
               count={counts[group]}
               nbTranches={config.nbTranches}
               canAdd={canAdd}
+              canRemove={canRemove}
               onAdd={() => handleAdd(group)}
               onRemove={() => handleRemove(group)}
               onMax={() => handleGroupMax(group)}
