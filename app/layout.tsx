@@ -23,7 +23,10 @@ export const metadata: Metadata = {
     title: "Chiro BXL",
   },
   icons: {
-    apple: "/logo.png",
+    apple: [
+      { url: "/logo.png", sizes: "180x180", type: "image/png" },
+    ],
+    icon: "/logo.png",
   },
 };
 
