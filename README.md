@@ -20,6 +20,7 @@ L'application est aujourd'hui un prototype local-first fonctionnel :
 - la localisation de chaque point (description prédéfinie issue des données CSV) est affichée en lecture seule dans le compteur, séparée du champ de remarques libres de l'observateur ;
 - les logos (LCP potentiels) utilisent `loading="eager"` avec `unoptimized` (le PNG contient un chunk propriétaire incompatible avec l'optimiseur Next.js) ;
 - les icônes PWA (manifeste et splash screen) pointent vers `/logo.png` ;
+- le service worker (Serwist) est enregistré et actif en production : les ressources statiques sont précachées et les pages sont servies offline via une stratégie NetworkFirst ;
 - la synchronisation vers une base de données Supabase n'est pas encore implémentée.
 
 ## Routes principales

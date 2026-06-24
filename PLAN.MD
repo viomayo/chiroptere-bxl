@@ -21,6 +21,8 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 - [fait] Séparer la localisation du point (description prédéfinie) des remarques libres de l'observateur : nouveau champ `localisation` dans `PointData`, affiché en lecture seule au-dessus du champ Remarques dans le compteur, et dans l'export CSV.
 - [fait] Changer le bouton − pour retirer la tranche courante (celle du timer) au lieu de la dernière tranche ajoutée.
 - [fait] Ajouter le mode MAX : remplit toutes les tranches d'un groupe et ouvre automatiquement le sélecteur d'espèces à chaque nouvelle tranche.
+- [fait] Activer l'enregistrement du service worker (`register: true`) pour le fonctionnement hors-ligne.
+- [fait] Corriger le label des espèces : passage des acronymes (PippiT, Myodau…) aux noms français complets (Pipistrelle commune, Murin de Daubenton…).
 
 ## Phase 2 — Persistance Supabase
 
