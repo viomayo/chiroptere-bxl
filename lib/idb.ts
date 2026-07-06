@@ -1,5 +1,5 @@
 const DB_NAME = 'chiroptere-bxl'
-const DB_VERSION = 2
+const DB_VERSION = 3
 const STORE_SESSIONS = 'sessions'
 const STORE_POINTS = 'points'
 
@@ -16,6 +16,7 @@ export interface SessionData {
   detecteurs: string[]
   commentaire: string
   createdAt: string
+  updatedAt: string
   syncedAt: string | null
 }
 
@@ -63,6 +64,7 @@ export interface PointData {
   timerState: PointTimerState | null
   coordX: number | null
   coordY: number | null
+  updatedAt: string
 }
 
 export function defaultCounts(): PointCounts {
@@ -136,6 +138,7 @@ function hydratePoint(raw: Record<string, unknown>): PointData {
     timerState: timerState ?? null,
     coordX: (raw.coordX as number | null) ?? null,
     coordY: (raw.coordY as number | null) ?? null,
+    updatedAt: (raw.updatedAt as string) ?? new Date().toISOString(),
   }
 }
 
@@ -212,6 +215,7 @@ export async function initSessionPoints(session: SessionData): Promise<PointData
   const existing = await getPointsBySession(session.id)
   if (existing.length > 0) return existing
 
+  const now = new Date().toISOString()
   const points: PointData[] = Array.from({ length: session.nbPointsEcoute }, (_, i) => ({
     id: `${session.id}-pt-${i + 1}`,
     sessionId: session.id,
@@ -226,6 +230,7 @@ export async function initSessionPoints(session: SessionData): Promise<PointData
     timerState: null,
     coordX: null,
     coordY: null,
+    updatedAt: now,
   }))
 
   const db = await openDB()

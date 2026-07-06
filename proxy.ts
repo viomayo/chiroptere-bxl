@@ -48,6 +48,7 @@ export async function proxy(request: NextRequest) {
       'Utilisateur'
     const avatar = (user.user_metadata?.avatar_url as string | undefined) ?? null
     requestHeaders.set('x-user-name', encodeURIComponent(name))
+    requestHeaders.set('x-user-id', user.id)
     if (avatar) requestHeaders.set('x-user-avatar', avatar)
   }
 

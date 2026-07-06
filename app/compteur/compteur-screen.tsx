@@ -458,6 +458,7 @@ export default function CompteurScreen() {
       commentaire,
       nbEspeces: countSpecies(counts),
       timerState,
+      updatedAt: new Date().toISOString(),
     }
 
     const save = window.setTimeout(() => {
@@ -538,6 +539,7 @@ export default function CompteurScreen() {
       ...point,
       heureDebut: now.toISOString(),
       statut: 'en_cours',
+      updatedAt: now.toISOString(),
       timerState: {
         started: true,
         paused: false,
@@ -588,6 +590,7 @@ export default function CompteurScreen() {
         localisation,
         commentaire: '',
         timerState: null,
+        updatedAt: new Date().toISOString(),
       }
       await updatePoint(updated)
       setPoint(updated)
@@ -719,6 +722,7 @@ export default function CompteurScreen() {
       counts,
       localisation,
       commentaire,
+      updatedAt: now.toISOString(),
       timerState: buildTimerState({
         started: true,
         paused: false,

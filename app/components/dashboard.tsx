@@ -10,7 +10,8 @@ import {
   type PointData,
   type PointCounts,
 } from '@/lib/idb'
-import { MapPin, Radio, Plus, ArrowRight, ChevronRight } from 'lucide-react'
+import { getStoredConflicts, type SyncConflict } from '@/lib/supabase/sync'
+import { MapPin, Radio, Plus, ArrowRight, ChevronRight, AlertTriangle } from 'lucide-react'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -89,6 +90,7 @@ export default function Dashboard({ name }: { name: string }) {
   const [loading, setLoading] = useState(true)
   const [sessions, setSessions] = useState<SessionData[]>([])
   const [allPoints, setAllPoints] = useState<PointData[]>([])
+  const [conflicts, setConflicts] = useState<SyncConflict[]>(() => getStoredConflicts())
 
   useEffect(() => {
     let active = true
@@ -99,6 +101,13 @@ export default function Dashboard({ name }: { name: string }) {
       setLoading(false)
     })
     return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setConflicts(getStoredConflicts())
+    }, 2000)
+    return () => clearInterval(interval)
   }, [])
 
   if (loading) {
@@ -151,9 +160,20 @@ export default function Dashboard({ name }: { name: string }) {
   })
 
   const hasData = sessions.length > 0
+  const conflictIds = new Set(conflicts.map((c) => c.sessionId))
 
   return (
     <div className="flex flex-col gap-6">
+
+      {/* Conflict banner */}
+      {conflicts.length > 0 && (
+        <div className="rounded-xl border border-[#b87840]/20 bg-[#b87840]/6 px-4 py-3 flex items-center gap-2.5">
+          <AlertTriangle size={14} className="text-[#b87840] shrink-0" />
+          <p className="text-xs text-foreground/70 flex-1">
+            {conflicts.length} session{conflicts.length > 1 ? 's' : ''} en conflit — utilisez le bouton <strong>Sync</strong> dans l&apos;en-tête pour résoudre.
+          </p>
+        </div>
+      )}
 
       {/* Greeting */}
       <div>
@@ -293,9 +313,19 @@ export default function Dashboard({ name }: { name: string }) {
                 <div className="flex items-center gap-2 shrink-0">
                   <div
                     className={`w-1.5 h-1.5 rounded-full ${
-                      session.syncedAt ? 'bg-[#4d8c5c]' : 'bg-foreground/12'
+                      conflictIds.has(session.id)
+                        ? 'bg-[#b87840]'
+                        : session.syncedAt
+                          ? 'bg-[#4d8c5c]'
+                          : 'bg-foreground/12'
                     }`}
-                    title={session.syncedAt ? 'Synchronisé' : 'Non synchronisé'}
+                    title={
+                      conflictIds.has(session.id)
+                        ? 'Conflit'
+                        : session.syncedAt
+                          ? 'Synchronisé'
+                          : 'Non synchronisé'
+                    }
                   />
                   <ChevronRight size={13} className="text-foreground/20" />
                 </div>

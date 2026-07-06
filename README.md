@@ -24,7 +24,7 @@ L'application est aujourd'hui un prototype local-first fonctionnel :
 - l'application est installable sur l'écran d'accueil (PWA) avec icône iOS (`apple-touch-icon`) ;
 - le fichier `proxy.ts` fait office de middleware (Next.js v16) : il protège l'accès aux routes et injecte les infos utilisateur dans les en-têtes ; les ressources PWA (`/logo.png`, `/sw.js`, `/manifest.webmanifest`) sont exclues du contrôle d'accès ;
 - une page de diagnostic `/sw-status` permet de vérifier l'état du service worker (enregistrement, caches, ping) ;
-- la synchronisation vers une base de données Supabase n'est pas encore implémentée.
+- la synchronisation unidirectionnelle (local → Supabase) est implémentée : un bouton Sync dans l'en-tête déclenche la poussée des sessions, points et observations vers Supabase ; les conflits (données modifiées à distance après le dernier sync) sont détectés et affichés dans une modale de résolution avec diff ; la synchronisation se déclenche automatiquement au retour en ligne.
 
 ## Routes principales
 
@@ -62,7 +62,7 @@ npm run build
 
 ## Données
 
-Pour le moment, les sessions et les points vivent uniquement dans IndexedDB. Le champ `syncedAt` existe déjà comme marqueur de synchronisation future, mais aucune donnée d'observation n'est encore écrite dans Supabase.
+Les données sont stockées localement dans IndexedDB et synchronisées unidirectionnellement (local → Supabase) via un bouton Sync dans l'en-tête ou automatiquement au retour en ligne. Le schéma Supabase (`sessions`, `points`, `observations`, `species_ref`) est défini dans `supabase/init.sql` avec RLS et seed des espèces.
 
 Les exports sont générés côté client :
 
@@ -73,9 +73,7 @@ Chaque site dispose de points d'écoute prédéfinis avec coordonnées (X, Y) et
 
 ## Limites connues
 
-- Pas encore de persistance Supabase pour les observations.
 - Pas de récupération multi-appareil.
-- Pas encore de migrations de base de données.
 - Pas encore de tests automatisés.
 
 ## Démo

@@ -117,12 +117,14 @@ export default function SiteForm({ compteurPrincipal }: { compteurPrincipal: str
       detecteurs,
       commentaire,
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       syncedAt: null,
     }
 
     try {
       const predefined = acronyme ? SITE_POINTS[acronyme]?.[typeSite] : undefined
       if (predefined && predefined.length > 0) {
+        const now = new Date().toISOString()
         const points: PointData[] = predefined.slice(0, nbPoints).map((p, i) => ({
           id: `${sessionId}-pt-${i + 1}`,
           sessionId,
@@ -137,6 +139,7 @@ export default function SiteForm({ compteurPrincipal }: { compteurPrincipal: str
           timerState: null,
           coordX: p.x,
           coordY: p.y,
+          updatedAt: now,
         }))
         await saveSessionWithPoints(session, points)
       } else {

@@ -2,14 +2,16 @@ import Link from 'next/link'
 import Image from 'next/image'
 import LogoutButton from './logout-button'
 import SubNavbar from './sub-navbar'
+import SyncButton from './sync-button'
 
 interface AppShellProps {
   name: string
   avatar: string | null
+  userId: string | null
   children: React.ReactNode
 }
 
-export default function AppShell({ name, avatar, children }: AppShellProps) {
+export default function AppShell({ name, avatar, userId, children }: AppShellProps) {
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <header className="border-b border-foreground/8 px-4 sm:px-6">
@@ -27,7 +29,9 @@ export default function AppShell({ name, avatar, children }: AppShellProps) {
             <span className="text-sm font-medium">Chiroptère BXL</span>
           </Link>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <SyncButton userId={userId} />
+
             <div className="flex items-center gap-2.5">
               {avatar ? (
                 <Image

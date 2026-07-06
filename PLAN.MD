@@ -30,16 +30,16 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 
 ## Phase 2 — Persistance Supabase
 
-- Créer de vraies migrations pour les sites, sessions, points, observations et espèces de référence.
-- Ajouter des politiques RLS limitées aux utilisateurs authentifiés et propriétaires des données.
-- Ajouter un seed pour les groupes et espèces de chauves-souris.
+- [fait] Créer de vraies migrations pour les sites, sessions, points, observations et espèces de référence (SQL à copier-coller).
+- [fait] Ajouter des politiques RLS limitées aux utilisateurs authentifiés et propriétaires des données.
+- [fait] Ajouter un seed pour les groupes et espèces de chauves-souris.
 
 ## Phase 3 — Synchronisation
 
-- Envoyer les sessions, points et observations locaux vers Supabase.
-- Marquer les données locales avec `syncedAt` après synchronisation réussie.
-- Récupérer l'historique synchronisé dans le tableau de bord.
-- Définir un comportement simple en cas de conflit.
+- [fait] Envoyer les sessions, points et observations locaux vers Supabase.
+- [fait] Marquer les données locales avec `syncedAt` après synchronisation réussie.
+- [fait] Récupérer l'historique synchronisé dans le tableau de bord.
+- [fait] Définir un comportement simple en cas de conflit (détection + résolution manuelle avec diff).
 
 ## Phase 4 — Exports et qualité des données
 
@@ -52,4 +52,4 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 - [fait] Garder `README.md` aligné avec l'état réel de l'application.
 - [fait] Mettre à jour ce plan après chaque lot fonctionnel.
 - [fait] Remplacer les icônes PWA dédiées par `/logo.png` pour le manifeste et le splash screen.
-- Documenter les choix de synchronisation et de schéma dès qu'ils sont implémentés.
+- [fait] Documenter les choix de synchronisation et de schéma dès qu'ils sont implémentés.
