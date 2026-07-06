@@ -1,5 +1,5 @@
-import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist'
-import { Serwist } from 'serwist'
+import type { PrecacheEntry, SerwistGlobalConfig, RuntimeCaching } from 'serwist'
+import { Serwist, NetworkFirst, ExpirationPlugin } from 'serwist'
 import { defaultCache } from '@serwist/next/worker'
 
 declare global {
@@ -10,12 +10,32 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope
 
+const navigationCache: RuntimeCaching = {
+  matcher: ({ request, sameOrigin, url }) =>
+    sameOrigin && request.mode === 'navigate' && !url.pathname.startsWith('/api/'),
+  handler: new NetworkFirst({
+    cacheName: 'pages-navigation',
+    plugins: [
+      new ExpirationPlugin({
+        maxEntries: 50,
+        maxAgeSeconds: 24 * 60 * 60,
+      }),
+      {
+        cacheKeyWillBeUsed: async ({ request }) => {
+          const url = new URL(request.url)
+          return url.origin + url.pathname
+        },
+      },
+    ],
+  }),
+}
+
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
-  runtimeCaching: defaultCache,
+  runtimeCaching: [navigationCache, ...defaultCache],
 })
 
 const sw = self as unknown as {
