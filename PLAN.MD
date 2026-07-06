@@ -54,6 +54,8 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 - [fait] Générer l'icône `apple-touch-icon` 180×180.
 - [fait] Remplacer le logo par le nouveau design chauve-souris (500×500, fond transparent).
 - [fait] Rendre le middleware compatible offline : lecture du token Supabase depuis le cookie au lieu de l'API distante.
+- [fait] Générer les favicons (16×16, 32×32) depuis le logo pour l'onglet du navigateur.
+- [fait] Corriger le cache du Service Worker : ignorer les query params dans les URLs de navigation (offline compteur).
 
 ## Phase 6 — Documentation et maintenance
 

@@ -23,7 +23,7 @@ L'application est aujourd'hui un prototype local-first fonctionnel :
 - le service worker (Serwist) est enregistré et actif en production : les ressources statiques sont précachées et les pages sont servies offline via une stratégie NetworkFirst ;
 - l'application est installable sur l'écran d'accueil (PWA) et fonctionne hors-ligne : le middleware lit le token Supabase depuis le cookie plutôt que d'appeler l'API distante, évitant les redirections vers `/login` quand le réseau est coupé ;
 - une page de diagnostic `/sw-status` permet de vérifier l'état du service worker (enregistrement, caches, ping) ;
-- le fichier `proxy.ts` fait office de middleware (Next.js v16) : il protège l'accès aux routes et injecte les infos utilisateur dans les en-têtes ; les ressources PWA (`/logo.png`, `/sw.js`, `/manifest.webmanifest`, `/icon-*.png`) sont exclues du contrôle d'accès ;
+- le fichier `proxy.ts` fait office de middleware (Next.js v16) : il protège l'accès aux routes et injecte les infos utilisateur dans les en-têtes ; les ressources PWA (`/logo.png`, `/sw.js`, `/manifest.webmanifest`, `/icon-*.png`, `/favicon-*.png`) sont exclues du contrôle d'accès ;
 - la synchronisation unidirectionnelle (local → Supabase) est implémentée : un bouton Sync dans l'en-tête déclenche la poussée des sessions, points et observations vers Supabase ; les conflits (données modifiées à distance après le dernier sync) sont détectés et affichés dans une modale de résolution avec diff ; la synchronisation se déclenche automatiquement au retour en ligne.
 
 ## Routes principales
