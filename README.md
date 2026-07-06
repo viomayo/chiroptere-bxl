@@ -19,7 +19,7 @@ L'application est aujourd'hui un prototype local-first fonctionnel :
 - les noms d'espèces sont affichés en français complet (ex. Pipistrelle commune, Murin de Daubenton) ;
 - la localisation de chaque point (description prédéfinie issue des données CSV) est affichée en lecture seule dans le compteur, séparée du champ de remarques libres de l'observateur ;
 - les logos (LCP potentiels) utilisent `loading="eager"` avec `unoptimized` (le PNG contient un chunk propriétaire incompatible avec l'optimiseur Next.js) ;
-- les icônes PWA sont générées aux bonnes dimensions (192×192, 512×512 maskable, apple-touch-icon 180×180) depuis le logo ;
+- les icônes PWA sont générées aux bonnes dimensions (192×192 avec fond sombre, 512×512, 512×512 maskable, apple-touch-icon 180×180, favicons 16×16 et 32×32) toutes depuis le logo chauve-souris ;
 - le service worker (Serwist) est enregistré et actif en production : les ressources statiques sont précachées et les pages sont servies offline via une stratégie NetworkFirst ;
 - l'application est installable sur l'écran d'accueil (PWA) et fonctionne hors-ligne : le middleware lit le token Supabase depuis le cookie plutôt que d'appeler l'API distante, évitant les redirections vers `/login` quand le réseau est coupé ;
 - une page de diagnostic `/sw-status` permet de vérifier l'état du service worker (enregistrement, caches, ping) ;

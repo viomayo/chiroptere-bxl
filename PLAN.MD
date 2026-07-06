@@ -56,6 +56,7 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 - [fait] Rendre le middleware compatible offline : lecture du token Supabase depuis le cookie au lieu de l'API distante.
 - [fait] Générer les favicons (16×16, 32×32) depuis le logo pour l'onglet du navigateur.
 - [fait] Corriger le cache du Service Worker : ignorer les query params dans les URLs de navigation (offline compteur).
+- [fait] Ajouter un fond sombre `#0f0d0b` aux icônes PWA pour une meilleure visibilité sur l'écran d'accueil.
 
 ## Phase 6 — Documentation et maintenance
 
