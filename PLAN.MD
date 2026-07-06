@@ -69,3 +69,4 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 - [fait] Supprimer le `navigationCache` custom qui doublonnait avec le `defaultCache` de Serwist, causant des conflits de cache et des erreurs `ERR_FAILED` sur les navigations non encore visitées dans la PWA.
 - [fait] Désactiver `navigationPreload` qui provoquait des échecs avec les redirections 307 du proxy d'authentification.
 - [fait] Simplifier le SW pour utiliser uniquement les stratégies par défaut de Serwist (`defaultCache`), déjà configurées en `NetworkFirst` pour les pages HTML, RSC et données.
+- [fait] Unifier les navigations pleine page (`mode: navigate`) et client-side (`RSC: 1`) dans un seul cache `pages-navigation` avec `NetworkFirst` pour éviter les `ERR_FAILED` en offline quand le type de navigation diffère entre la visite en ligne et la visite hors ligne dans la PWA.
