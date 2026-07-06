@@ -4,6 +4,35 @@ import type { CookieOptions } from '@supabase/ssr'
 
 type PendingCookie = { name: string; value: string; options: CookieOptions }
 
+function decodeJWT(token: string): Record<string, unknown> | null {
+  try {
+    const payload = token.split('.')[1]
+    if (!payload) return null
+    return JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')))
+  } catch {
+    return null
+  }
+}
+
+function getSessionFromCookies(allCookies: { name: string; value: string }[]): {
+  userId: string | null
+  userName: string | null
+  userAvatar: string | null
+} {
+  const authCookie = allCookies.find((c) => c.name.startsWith('sb-') && c.name.endsWith('-auth-token'))
+  if (!authCookie) return { userId: null, userName: null, userAvatar: null }
+
+  const parsed = decodeJWT(authCookie.value)
+  if (!parsed) return { userId: null, userName: null, userAvatar: null }
+
+  const md = parsed.user_metadata as Record<string, unknown> | undefined
+  return {
+    userId: (parsed.sub as string) ?? null,
+    userName: (md?.full_name as string) ?? (md?.name as string) ?? null,
+    userAvatar: (md?.avatar_url as string) ?? null,
+  }
+}
+
 export async function proxy(request: NextRequest) {
   const pending: PendingCookie[] = []
 
@@ -18,7 +47,6 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
 
   function applyPending(response: NextResponse): NextResponse {
@@ -31,25 +59,42 @@ export async function proxy(request: NextRequest) {
 
   const isPublic = pathname.startsWith('/login') || pathname.startsWith('/auth')
 
-  if (!user && !isPublic) {
+  let userId: string | null = null
+  let userName: string | null = null
+  let userAvatar: string | null = null
+
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      userId = user.id
+      userName =
+        (user.user_metadata?.full_name as string | undefined) ??
+        (user.user_metadata?.name as string | undefined) ??
+        user.email ??
+        null
+      userAvatar = (user.user_metadata?.avatar_url as string | undefined) ?? null
+    }
+  } catch {
+    // Offline: fall back to cookie
+    const cookieSession = getSessionFromCookies(request.cookies.getAll())
+    userId = cookieSession.userId
+    userName = cookieSession.userName
+    userAvatar = cookieSession.userAvatar
+  }
+
+  if (!userId && !isPublic) {
     return applyPending(NextResponse.redirect(new URL('/login', request.url)))
   }
 
-  if (user && pathname === '/login') {
+  if (userId && pathname === '/login') {
     return applyPending(NextResponse.redirect(new URL('/', request.url)))
   }
 
   const requestHeaders = new Headers(request.headers)
-  if (user) {
-    const name =
-      (user.user_metadata?.full_name as string | undefined) ??
-      (user.user_metadata?.name as string | undefined) ??
-      user.email ??
-      'Utilisateur'
-    const avatar = (user.user_metadata?.avatar_url as string | undefined) ?? null
-    requestHeaders.set('x-user-name', encodeURIComponent(name))
-    requestHeaders.set('x-user-id', user.id)
-    if (avatar) requestHeaders.set('x-user-avatar', avatar)
+  if (userId) {
+    requestHeaders.set('x-user-id', userId)
+    requestHeaders.set('x-user-name', encodeURIComponent(userName ?? 'Utilisateur'))
+    if (userAvatar) requestHeaders.set('x-user-avatar', userAvatar)
   }
 
   return applyPending(NextResponse.next({ request: { headers: requestHeaders } }))
