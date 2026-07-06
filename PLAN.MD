@@ -47,9 +47,16 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 - [fait] Intégrer les 319 points d'écoute prédéfinis (coordonnées X/Y + descriptions) directement dans la configuration des sites. Le nombre de points et leurs données sont automatiquement utilisés lors de la création d'une session.
 - [fait] Ajouter les coordonnées des points (`coord_x`, `coord_y`) dans l'export CSV.
 
-## Phase 5 — Documentation et maintenance
+## Phase 5 — PWA et offline
+
+- [fait] Remplacer les icônes PWA dédiées par `/logo.png` pour le manifeste et le splash screen.
+- [fait] Générer des icônes PWA aux bonnes dimensions (192×192, 512×512 maskable) depuis le logo.
+- [fait] Générer l'icône `apple-touch-icon` 180×180.
+- [fait] Remplacer le logo par le nouveau design chauve-souris (500×500, fond transparent).
+- [fait] Rendre le middleware compatible offline : lecture du token Supabase depuis le cookie au lieu de l'API distante.
+
+## Phase 6 — Documentation et maintenance
 
 - [fait] Garder `README.md` aligné avec l'état réel de l'application.
 - [fait] Mettre à jour ce plan après chaque lot fonctionnel.
-- [fait] Remplacer les icônes PWA dédiées par `/logo.png` pour le manifeste et le splash screen.
 - [fait] Documenter les choix de synchronisation et de schéma dès qu'ils sont implémentés.
