@@ -10,16 +10,13 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope
 
-const navigationCache: RuntimeCaching = {
-  matcher: ({ request, sameOrigin, url }) => {
-    if (!sameOrigin || url.pathname.startsWith('/api/')) return false
-    return (
-      request.mode === 'navigate' ||
-      request.headers.get('RSC') === '1'
-    )
+const navigateCache: RuntimeCaching = {
+  matcher: ({ request, sameOrigin }) => {
+    if (!sameOrigin) return false
+    return request.mode === 'navigate'
   },
   handler: new NetworkFirst({
-    cacheName: 'pages-navigation',
+    cacheName: 'pages-navigate',
     plugins: [
       new ExpirationPlugin({
         maxEntries: 50,
@@ -34,7 +31,16 @@ const serwist = new Serwist({
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: false,
-  runtimeCaching: [navigationCache, ...defaultCache],
+  runtimeCaching: [navigateCache, ...defaultCache],
+})
+
+serwist.setCatchHandler(async ({ request }) => {
+  if (request.mode === 'navigate') {
+    const { origin } = new URL(request.url)
+    const cached = await caches.match(`${origin}/`)
+    if (cached) return cached
+  }
+  return Response.error()
 })
 
 const sw = self as unknown as {
