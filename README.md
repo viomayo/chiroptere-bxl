@@ -67,7 +67,7 @@ Les données sont stockées localement dans IndexedDB et synchronisées unidirec
 
 Les exports sont générés côté client :
 
-- CSV détaillé avec sessions, points, groupes, espèces et tranches ;
+- CSV détaillé avec sessions, points (identifiés par acronyme + numéro, ex. `CAM-01`), horaires de début/fin, groupes, espèces et tranches ;
 - JSON complet de la session et des points locaux.
 
 Chaque site dispose de points d'écoute prédéfinis avec coordonnées (X, Y) et descriptions de localisation. Lors de la création d'une session, le nombre de points est automatiquement prérempli et les points sont créés avec leurs coordonnées et description de localisation dans IndexedDB. La description est affichée en lecture seule dans le compteur, tandis que le champ Remarques reste libre pour l'observateur.
