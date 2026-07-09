@@ -31,7 +31,8 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 ## Phase 2 — Persistance Supabase
 
 - [fait] Créer de vraies migrations pour les sites, sessions, points, observations et espèces de référence (SQL à copier-coller).
-- [fait] Ajouter des politiques RLS limitées aux utilisateurs authentifiés et propriétaires des données.
+- [fait] Ajouter des politiques RLS limitées aux utilisateurs authentifiés et propriétaires des données, avec une exception `is_supervisor()` pour la lecture.
+- [fait] Ajouter la table `supervisors` (email PK) et la fonction `is_supervisor()` pour le contrôle d'accès superviseur.
 - [fait] Ajouter un seed pour les groupes et espèces de chauves-souris.
 
 ## Phase 3 — Synchronisation
@@ -71,3 +72,12 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 - [fait] Simplifier le SW pour utiliser uniquement les stratégies par défaut de Serwist (`defaultCache`), déjà configurées en `NetworkFirst` pour les pages HTML, RSC et données.
 - [fait] Séparer les caches navigate (`pages-navigate`) et RSC (`pages-rsc`) : chaque requête RSC déclenche aussi une mise en cache de la page HTML complète dans `pages-navigate`, garantissant que les deux types de navigation fonctionnent hors ligne après une visite en ligne.
 - [fait] Ajouter un cache par pathname (sans query params) dans `pages-navigate` : toutes les variantes d'URL d'une même route (ex. `/compteur?pointId=xxx`) sont disponibles hors ligne dès qu'une seule a été visitée en ligne. Un fallback `handlerDidError` sert le shell pathname ou l'accueil si l'URL exacte n'est pas en cache.
+
+## Phase 8 — Supervision multi-utilisateur
+
+- [fait] Ajouter la table `supervisors` (email PK, `created_at`) dans le schéma Supabase avec RLS et trigger de normalisation des emails.
+- [fait] Ajouter la fonction `is_supervisor()` (SECURITY DEFINER) utilisée par les RLS SELECT pour donner accès en lecture à toutes les données.
+- [fait] Modifier les politiques RLS `owner_select` sur `sessions`, `points`, `observations` pour autoriser les superviseurs (`user_id = auth.uid() OR is_supervisor()`).
+- [fait] Injecter l'en-tête `x-user-is-supervisor` dans le middleware `proxy.ts` via une requête best-effort à Supabase.
+- [fait] Extraire l'email depuis le JWT dans `getSessionFromCookies()` pour la détection superviseur même en fallback offline.
+- [fait] Normaliser la casse des emails (LOWER côté SQL, ilike côté middleware, trigger BEFORE INSERT/UPDATE sur `supervisors`).

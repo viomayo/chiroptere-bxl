@@ -18,18 +18,20 @@ function getSessionFromCookies(allCookies: { name: string; value: string }[]): {
   userId: string | null
   userName: string | null
   userAvatar: string | null
+  userEmail: string | null
 } {
   const authCookie = allCookies.find((c) => c.name.startsWith('sb-') && c.name.endsWith('-auth-token'))
-  if (!authCookie) return { userId: null, userName: null, userAvatar: null }
+  if (!authCookie) return { userId: null, userName: null, userAvatar: null, userEmail: null }
 
   const parsed = decodeJWT(authCookie.value)
-  if (!parsed) return { userId: null, userName: null, userAvatar: null }
+  if (!parsed) return { userId: null, userName: null, userAvatar: null, userEmail: null }
 
   const md = parsed.user_metadata as Record<string, unknown> | undefined
   return {
     userId: (parsed.sub as string) ?? null,
     userName: (md?.full_name as string) ?? (md?.name as string) ?? null,
     userAvatar: (md?.avatar_url as string) ?? null,
+    userEmail: (parsed.email as string) ?? null,
   }
 }
 
@@ -62,6 +64,7 @@ export async function proxy(request: NextRequest) {
   let userId: string | null = null
   let userName: string | null = null
   let userAvatar: string | null = null
+  let userEmail: string | null = null
 
   try {
     const { data: { user } } = await supabase.auth.getUser()
@@ -73,6 +76,7 @@ export async function proxy(request: NextRequest) {
         user.email ??
         null
       userAvatar = (user.user_metadata?.avatar_url as string | undefined) ?? null
+      userEmail = user.email ?? null
     }
   } catch {
     // Offline: fall back to cookie
@@ -80,6 +84,7 @@ export async function proxy(request: NextRequest) {
     userId = cookieSession.userId
     userName = cookieSession.userName
     userAvatar = cookieSession.userAvatar
+    userEmail = cookieSession.userEmail
   }
 
   if (!userId && !isPublic) {
@@ -95,6 +100,21 @@ export async function proxy(request: NextRequest) {
     requestHeaders.set('x-user-id', userId)
     requestHeaders.set('x-user-name', encodeURIComponent(userName ?? 'Utilisateur'))
     if (userAvatar) requestHeaders.set('x-user-avatar', userAvatar)
+
+    // Vérifier si l'utilisateur est superviseur (best-effort, pas de fallback offline)
+    if (userEmail) {
+      try {
+        const { count } = await supabase
+          .from('supervisors')
+          .select('*', { count: 'exact', head: true })
+          .ilike('email', userEmail)
+        if (count && count > 0) {
+          requestHeaders.set('x-user-is-supervisor', 'true')
+        }
+      } catch {
+        // offline — on ne bloque pas l'accès
+      }
+    }
   }
 
   return applyPending(NextResponse.next({ request: { headers: requestHeaders } }))

@@ -57,29 +57,62 @@ CREATE TABLE IF NOT EXISTS species_ref (
   ordre INT NOT NULL
 );
 
--- 2. Index ----------------------------------------------------
+-- 2. Table superviseurs -----------------------------------------
+
+-- Les superviseurs peuvent voir les données de tous les utilisateurs
+CREATE TABLE IF NOT EXISTS supervisors (
+  email TEXT PRIMARY KEY,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Normalisation : les emails sont toujours stockés en minuscule
+CREATE OR REPLACE FUNCTION lowercase_supervisor_email()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.email = LOWER(NEW.email);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_supervisors_lowercase_email
+  BEFORE INSERT OR UPDATE ON supervisors
+  FOR EACH ROW EXECUTE FUNCTION lowercase_supervisor_email();
+
+-- 3. Index ----------------------------------------------------
 
 CREATE INDEX IF NOT EXISTS idx_points_session ON points(session_id);
 CREATE INDEX IF NOT EXISTS idx_observations_point ON observations(point_id);
 CREATE INDEX IF NOT EXISTS idx_observations_session ON observations(session_id);
 
--- 3. RLS ------------------------------------------------------
+-- 4. Fonction utilitaire ---------------------------------------
+
+CREATE OR REPLACE FUNCTION is_supervisor()
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM supervisors
+    WHERE LOWER(email) = LOWER((SELECT email FROM auth.users WHERE id = auth.uid()))
+  );
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+
+-- 5. RLS ------------------------------------------------------
 
 ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE points ENABLE ROW LEVEL SECURITY;
 ALTER TABLE observations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE species_ref ENABLE ROW LEVEL SECURITY;
 
--- Chacun ne voit que ses propres données
+-- Chacun ne voit que ses propres données ; les superviseurs voient tout
 CREATE POLICY owner_select ON sessions
-  FOR SELECT USING (user_id = auth.uid());
+  FOR SELECT USING (user_id = auth.uid() OR is_supervisor());
 CREATE POLICY owner_insert ON sessions
   FOR INSERT WITH CHECK (user_id = auth.uid());
 CREATE POLICY owner_update ON sessions
   FOR UPDATE USING (user_id = auth.uid());
 
 CREATE POLICY owner_select ON points
-  FOR SELECT USING (user_id = auth.uid());
+  FOR SELECT USING (user_id = auth.uid() OR is_supervisor());
 CREATE POLICY owner_insert ON points
   FOR INSERT WITH CHECK (user_id = auth.uid());
 CREATE POLICY owner_update ON points
@@ -88,7 +121,7 @@ CREATE POLICY owner_delete ON points
   FOR DELETE USING (user_id = auth.uid());
 
 CREATE POLICY owner_select ON observations
-  FOR SELECT USING (user_id = auth.uid());
+  FOR SELECT USING (user_id = auth.uid() OR is_supervisor());
 CREATE POLICY owner_insert ON observations
   FOR INSERT WITH CHECK (user_id = auth.uid());
 CREATE POLICY owner_update ON observations
@@ -100,7 +133,7 @@ CREATE POLICY owner_delete ON observations
 CREATE POLICY read_species ON species_ref
   FOR SELECT USING (auth.role() = 'authenticated');
 
--- 4. Auto-update updated_at -----------------------------------
+-- 6. Auto-update updated_at -----------------------------------
 
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
@@ -118,7 +151,7 @@ CREATE TRIGGER trg_points_updated_at
   BEFORE UPDATE ON points
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
--- 5. Seed espèces ---------------------------------------------
+-- 7. Seed espèces ---------------------------------------------
 
 INSERT INTO species_ref (groupe, espece, espece_label, ordre) VALUES
   ('pipistrelles', 'Pip. commune', 'Pipistrelle commune', 1),

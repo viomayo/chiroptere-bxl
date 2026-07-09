@@ -26,6 +26,7 @@ L'application est aujourd'hui un prototype local-first fonctionnel :
 - une page de diagnostic `/sw-status` permet de vérifier l'état du service worker (enregistrement, caches, ping) ;
 - le fichier `proxy.ts` fait office de middleware (Next.js v16) : il protège l'accès aux routes et injecte les infos utilisateur dans les en-têtes ; les ressources PWA (`/logo.png`, `/sw.js`, `/manifest.webmanifest`, `/icon-*.png`, `/favicon-*.png`) sont exclues du contrôle d'accès ;
 - la synchronisation unidirectionnelle (local → Supabase) est implémentée : un bouton Sync dans l'en-tête déclenche la poussée des sessions, points et observations vers Supabase ; les conflits (données modifiées à distance après le dernier sync) sont détectés et affichés dans une modale de résolution avec diff ; la synchronisation se déclenche automatiquement au retour en ligne.
+- les superviseurs (inscrits dans la table `supervisors`) voient les données de tous les utilisateurs dans la base Supabase, via une politique RLS spécifique ; le middleware injecte l'en-tête `x-user-is-supervisor` pour les adapter côté client.
 
 ## Routes principales
 
@@ -63,7 +64,7 @@ npm run build
 
 ## Données
 
-Les données sont stockées localement dans IndexedDB et synchronisées unidirectionnellement (local → Supabase) via un bouton Sync dans l'en-tête ou automatiquement au retour en ligne. Le schéma Supabase (`sessions`, `points`, `observations`, `species_ref`) est défini dans `supabase/init.sql` avec RLS et seed des espèces.
+Les données sont stockées localement dans IndexedDB et synchronisées unidirectionnellement (local → Supabase) via un bouton Sync dans l'en-tête ou automatiquement au retour en ligne. Le schéma Supabase (`sessions`, `points`, `observations`, `species_ref`, `supervisors`) est défini dans `supabase/init.sql` avec RLS et seed des espèces. Les superviseurs (table `supervisors`) peuvent lire toutes les données via une politique RLS dédiée.
 
 Les exports sont générés côté client :
 
