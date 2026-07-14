@@ -33,7 +33,7 @@ const GROUP_COLORS: Record<GroupKey, string> = {
   autres: '#ec4899',
 }
 
-const GROUP_KEYS: GroupKey[] = ['pipistrelles', 'murins', 'serotules', 'autres']
+const GROUP_KEYS: GroupKey[] = ['pipistrelles', 'serotules', 'murins', 'autres']
 
 const SPECIES_LABELS: Record<string, string> = {
   'Pip. commune': 'Pipistrelle commune',
