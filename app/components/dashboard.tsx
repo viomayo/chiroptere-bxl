@@ -8,14 +8,15 @@ import {
   getAllPoints,
   getRemoteSessions,
   getAllRemotePoints,
+  deleteSession,
   type SessionData,
   type PointData,
   type PointCounts,
   type RemoteSessionData,
   type RemotePointData,
 } from '@/lib/idb'
-import { getStoredConflicts, pullAllSessionsForSupervisor, type SyncConflict } from '@/lib/supabase/sync'
-import { MapPin, Radio, Plus, ArrowRight, ChevronRight, AlertTriangle, Download, Users } from 'lucide-react'
+import { getStoredConflicts, pullAllSessionsForSupervisor, deleteSessionFromSupabase, type SyncConflict } from '@/lib/supabase/sync'
+import { MapPin, Radio, Plus, ArrowRight, ChevronRight, AlertTriangle, Download, Users, Trash2 } from 'lucide-react'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -99,6 +100,17 @@ export default function Dashboard({ name, userId, isSupervisor }: { name: string
   const [remotePoints, setRemotePoints] = useState<RemotePointData[]>([])
   const [pulling, setPulling] = useState(false)
   const [pullError, setPullError] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  async function handleDelete(sessionId: string, e: React.MouseEvent) {
+    e.stopPropagation()
+    if (!window.confirm('Supprimer cette session et tous ses points ?')) return
+    setDeletingId(sessionId)
+    await deleteSession(sessionId)
+    if (userId) await deleteSessionFromSupabase(sessionId)
+    setSessions((prev) => prev.filter((s) => s.id !== sessionId))
+    setDeletingId(null)
+  }
 
   useEffect(() => {
     let active = true
@@ -357,6 +369,15 @@ export default function Dashboard({ name, userId, isSupervisor }: { name: string
                           : 'Non synchronisé'
                     }
                   />
+                  <button
+                    type="button"
+                    onClick={(e) => handleDelete(session.id, e)}
+                    disabled={deletingId === session.id}
+                    className="p-1 rounded-md hover:bg-red-500/10 text-foreground/20 hover:text-red-500/70 disabled:opacity-30 transition-colors"
+                    title="Supprimer"
+                  >
+                    <Trash2 size={13} />
+                  </button>
                   <ChevronRight size={13} className="text-foreground/20" />
                 </div>
               </button>

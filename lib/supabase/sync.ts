@@ -176,6 +176,33 @@ async function syncSession(
   return 'ok'
 }
 
+export async function deleteSessionFromSupabase(sessionId: string): Promise<'ok' | 'error'> {
+  const supabase = createClient()
+  const points = await getPointsBySession(sessionId)
+
+  for (const point of points) {
+    const { error: delObs } = await supabase
+      .from('observations')
+      .delete()
+      .eq('point_id', point.id)
+    if (delObs) return 'error'
+  }
+
+  const { error: delPoints } = await supabase
+    .from('points')
+    .delete()
+    .eq('session_id', sessionId)
+  if (delPoints) return 'error'
+
+  const { error: delSession } = await supabase
+    .from('sessions')
+    .delete()
+    .eq('id', sessionId)
+  if (delSession) return 'error'
+
+  return 'ok'
+}
+
 const CONFLICTS_KEY = 'chiroptere-bxl-conflicts'
 
 export function getStoredConflicts(): SyncConflict[] {

@@ -163,6 +163,20 @@ function hydratePoint(raw: Record<string, unknown>): PointData {
   }
 }
 
+export async function deleteSession(sessionId: string): Promise<void> {
+  const db = await openDB()
+  const points = await getPointsBySession(sessionId)
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([STORE_SESSIONS, STORE_POINTS], 'readwrite')
+    tx.objectStore(STORE_SESSIONS).delete(sessionId)
+    for (const p of points) {
+      tx.objectStore(STORE_POINTS).delete(p.id)
+    }
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
 export async function saveSession(session: SessionData): Promise<void> {
   const db = await openDB()
   return new Promise((resolve, reject) => {
