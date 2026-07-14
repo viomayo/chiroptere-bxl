@@ -140,7 +140,7 @@ function TrancheDots({
 }) {
   const set = new Set(history)
   return (
-    <div className="flex flex-wrap gap-0.5 sm:gap-1">
+    <div className="flex flex-wrap gap-px sm:gap-1">
       {Array.from({ length: nbTranches }, (_, i) => i + 1).map((t) => {
         const filled = set.has(t)
         return (
