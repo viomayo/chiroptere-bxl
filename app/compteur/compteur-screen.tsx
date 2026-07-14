@@ -15,7 +15,7 @@ import {
   type SessionData,
 } from '@/lib/idb'
 import { getSiteConfig, type SiteTypeConfig } from '@/lib/site-config'
-import { Pause, Play, RotateCcw } from 'lucide-react'
+import { Pause, Play, RotateCcw, Undo2, Eye, EyeOff } from 'lucide-react'
 
 type GroupKey = keyof PointCounts
 
@@ -147,10 +147,10 @@ function TrancheDots({
           <button
             key={t}
             type="button"
-            onClick={() => { if (!filled) onAdd(t) }}
+            onClick={() => onAdd(t)}
             className={`w-1.5 h-1.5 sm:w-3 sm:h-3 rounded-full transition-all duration-200 ${
               filled
-                ? 'bg-foreground cursor-default'
+                ? 'bg-foreground hover:ring-1 hover:ring-foreground/30 cursor-pointer'
                 : 'bg-foreground/12 hover:bg-foreground/40 active:bg-foreground/60 cursor-pointer'
             }`}
           />
@@ -237,6 +237,86 @@ function InlineSpeciesPicker({
             />
             <span className="text-[10px] sm:text-xs text-foreground/70">{SPECIES_LABELS[sp]}</span>
           </label>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Review panel (full species × tranche grid for completed points) ────────
+
+function ReviewPanel({
+  counts,
+  nbTranches,
+  onToggleSpecies,
+}: {
+  counts: PointCounts
+  nbTranches: number
+  onToggleSpecies: (group: GroupKey, sp: string, tranche: number) => void
+}) {
+  return (
+    <div className="rounded-xl border border-foreground/8 bg-background p-4 flex flex-col gap-4">
+      <span className="text-xs font-medium text-foreground/45 uppercase tracking-wider">
+        Révision des espèces par tranche
+      </span>
+      {GROUP_KEYS.map((group) => {
+        const gc = counts[group]
+        if (gc.total === 0 && gc.species.length === 0) return null
+        return (
+          <div key={group} className="flex flex-col gap-2">
+            <span className="text-sm font-bold" style={{ color: GROUP_COLORS[group], fontVariant: 'small-caps' }}>
+              {GROUP_LABELS[group]}
+            </span>
+            <div className="grid gap-x-3 gap-y-1" style={{ gridTemplateColumns: `120px repeat(${nbTranches}, 1fr)` }}>
+              <span className="text-[10px] text-foreground/30 uppercase tracking-wider" />
+              {Array.from({ length: nbTranches }, (_, i) => (
+                <span key={i} className="text-[10px] text-foreground/25 text-center font-mono">{i + 1}</span>
+              ))}
+              {gc.species.length > 0 ? gc.species.map((sp) => (
+                <div key={sp.name} className="contents">
+                  <span className="text-[10px] text-foreground/60 truncate self-center">
+                    {SPECIES_LABELS[sp.name] ?? sp.name}
+                  </span>
+                  {Array.from({ length: nbTranches }, (_, i) => {
+                    const t = i + 1
+                    const checked = sp.trancheHistory.includes(t)
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => onToggleSpecies(group, sp.name, t)}
+                        className={`w-4 h-4 rounded-sm mx-auto flex items-center justify-center text-[9px] transition-colors cursor-pointer ${
+                          checked
+                            ? 'bg-foreground/20 text-foreground/60 hover:bg-foreground/30'
+                            : 'bg-foreground/5 text-foreground/20 hover:bg-foreground/10'
+                        }`}
+                      >
+                        {checked ? '✓' : ''}
+                      </button>
+                    )
+                  })}
+                </div>
+              )) : (
+                <span className="text-[10px] text-foreground/30 col-span-full italic">
+                  Aucune espèce renseignée
+                </span>
+              )}
+              {gc.total > 0 && gc.species.length === 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const groupTranches = gc.trancheHistory
+                    if (groupTranches.length > 0) {
+                      onToggleSpecies(group, SPECIES[group][0], groupTranches[0])
+                    }
+                  }}
+                  className="text-[10px] text-foreground/40 hover:text-foreground/70 col-span-full text-left transition-colors cursor-pointer"
+                >
+                  + Ajouter une espèce
+                </button>
+              )}
+            </div>
+          </div>
         )
       })}
     </div>
@@ -357,6 +437,7 @@ export default function CompteurScreen() {
   const configRef = useRef(config)
 
   const [countdown, setCountdown] = useState<number | null>(null)
+  const [reviewMode, setReviewMode] = useState(false)
 
   // Counts
   const [counts, setCounts] = useState<PointCounts>(defaultCounts())
@@ -382,6 +463,42 @@ export default function CompteurScreen() {
   const maxModeRef = useRef(maxMode)
 
   useEffect(() => { maxModeRef.current = maxMode }, [maxMode])
+
+  // ── Undo history ──
+  const actionHistoryRef = useRef<PointCounts[]>([])
+  const [canUndo, setCanUndo] = useState(false)
+
+  function cloneGroupCount(g: GroupCount): GroupCount {
+    return {
+      total: g.total,
+      trancheHistory: [...g.trancheHistory],
+      species: g.species.map((s) => ({ ...s, trancheHistory: [...s.trancheHistory] })),
+    }
+  }
+
+  function cloneCounts(c: PointCounts): PointCounts {
+    return {
+      pipistrelles: cloneGroupCount(c.pipistrelles),
+      murins: cloneGroupCount(c.murins),
+      serotules: cloneGroupCount(c.serotules),
+      autres: cloneGroupCount(c.autres),
+    }
+  }
+
+  function pushSnapshot() {
+    const history = actionHistoryRef.current
+    actionHistoryRef.current = [...history.slice(-49), cloneCounts(counts)]
+    setCanUndo(true)
+  }
+
+  function handleUndo() {
+    const history = actionHistoryRef.current
+    if (history.length === 0) return
+    const snapshot = history[history.length - 1]
+    actionHistoryRef.current = history.slice(0, -1)
+    setCounts(snapshot)
+    setCanUndo(actionHistoryRef.current.length > 0)
+  }
 
   // Load
   useEffect(() => {
@@ -614,6 +731,7 @@ export default function CompteurScreen() {
   // ── Count handlers ────────────────────────────────────────────────────────
 
   function handleAdd(group: GroupKey) {
+    pushSnapshot()
     const t = currentTrancheRef.current
     const g = counts[group]
     if (!g.trancheHistory.includes(t)) {
@@ -628,6 +746,7 @@ export default function CompteurScreen() {
   }
 
   function handleAddTranche(group: GroupKey, tranche: number) {
+    pushSnapshot()
     const g = counts[group]
     if (!g.trancheHistory.includes(tranche)) {
       setCounts((prev) => {
@@ -640,6 +759,7 @@ export default function CompteurScreen() {
   }
 
   function handleToggleSpecies(group: GroupKey, sp: string, tranche: number) {
+    pushSnapshot()
     setCounts((prev) => {
       const g = prev[group]
       const existing = g.species.find((s) => s.name === sp)
@@ -665,6 +785,7 @@ export default function CompteurScreen() {
   }
 
   function handleRemove(group: GroupKey) {
+    pushSnapshot()
     const tranche = currentTrancheRef.current
     setCounts((prev) => {
       const g = prev[group]
@@ -695,10 +816,12 @@ export default function CompteurScreen() {
 
   function handleGroupMax(group: GroupKey) {
     if (maxMode[group]) {
+      pushSnapshot()
       setMaxMode((prev) => ({ ...prev, [group]: false }))
       setDetailTranche((prev) => ({ ...prev, [group]: null }))
       return
     }
+    pushSnapshot()
     const allTranches = Array.from({ length: config.nbTranches }, (_, i) => i + 1)
     setCounts((prev) => ({
       ...prev,
@@ -912,6 +1035,42 @@ export default function CompteurScreen() {
           )
         })}
       </div>
+
+      {/* ── Action buttons ── */}
+      {started && (
+        <div className="flex items-center gap-2">
+          {canUndo && (
+            <button
+              type="button"
+              onClick={handleUndo}
+              title="Annuler la dernière action"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-foreground/10 text-xs font-medium text-foreground/55 hover:bg-foreground/5 hover:text-foreground/80 transition-colors cursor-pointer"
+            >
+              <Undo2 size={12} />
+              Annuler
+            </button>
+          )}
+          {finished && (
+            <button
+              type="button"
+              onClick={() => setReviewMode((prev) => !prev)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-foreground/10 text-xs font-medium text-foreground/55 hover:bg-foreground/5 hover:text-foreground/80 transition-colors cursor-pointer"
+            >
+              {reviewMode ? <EyeOff size={12} /> : <Eye size={12} />}
+              {reviewMode ? 'Masquer' : 'Réviser'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ── Review panel ── */}
+      {reviewMode && finished && (
+        <ReviewPanel
+          counts={counts}
+          nbTranches={config.nbTranches}
+          onToggleSpecies={handleToggleSpecies}
+        />
+      )}
 
       {/* ── Localisation ── */}
       {localisation && (

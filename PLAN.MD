@@ -82,3 +82,9 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 - [fait] Extraire l'email depuis le JWT dans `getSessionFromCookies()` pour la détection superviseur même en fallback offline.
 - [fait] Normaliser la casse des emails (LOWER côté SQL, ilike côté middleware, trigger BEFORE INSERT/UPDATE sur `supervisors`).
 - [fait] Implémenter le pull des données de tous les utilisateurs dans le tableau de bord superviseur : nouvelle fonction `pullAllSessionsForSupervisor()` dans `sync.ts`, stores distants dédiés dans IndexedDB (`remote_sessions`, `remote_points`), bouton « Récupérer » dans le Dashboard pour les superviseurs qui déclenche l'import et affiche les sessions avec le badge utilisateur.
+
+## Phase 9 — Édition post-point et révision
+
+- [fait] Ajouter un historique d'actions (undo) dans le compteur : chaque action (+, -, MAX, ajout d'espèce) sauvegarde un snapshot des comptages ; un bouton « Annuler » permet de restaurer l'état précédent (pile de 50 max).
+- [fait] Rendre les pastilles de tranches remplies cliquables : cliquer une pastille déjà remplie ouvre le sélecteur d'espèces pour cette tranche, sans ajouter de comptage supplémentaire.
+- [fait] Ajouter un mode « Révision » accessible après la fin du point : grille espèces × tranches complète avec cases à cocher pour chaque combinaison, permettant d'ajuster les espèces a posteriori.
