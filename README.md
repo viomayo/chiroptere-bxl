@@ -26,7 +26,7 @@ L'application est aujourd'hui un prototype local-first fonctionnel :
 - une page de diagnostic `/sw-status` permet de vérifier l'état du service worker (enregistrement, caches, ping) ;
 - le fichier `proxy.ts` fait office de middleware (Next.js v16) : il protège l'accès aux routes et injecte les infos utilisateur dans les en-têtes ; les ressources PWA (`/logo.png`, `/sw.js`, `/manifest.webmanifest`, `/icon-*.png`, `/favicon-*.png`) sont exclues du contrôle d'accès ;
 - la synchronisation unidirectionnelle (local → Supabase) est implémentée : un bouton Sync dans l'en-tête déclenche la poussée des sessions, points et observations vers Supabase ; les conflits (données modifiées à distance après le dernier sync) sont détectés et affichés dans une modale de résolution avec diff ; la synchronisation se déclenche automatiquement au retour en ligne.
-- les superviseurs (inscrits dans la table `supervisors`) voient les données de tous les utilisateurs dans la base Supabase, via une politique RLS spécifique ; le middleware injecte l'en-tête `x-user-is-supervisor` pour les adapter côté client.
+- les superviseurs (inscrits dans la table `supervisors`) peuvent récupérer et visualiser les données de tous les utilisateurs directement dans le tableau de bord via le bouton « Récupérer » ; les sessions distantes sont stockées dans des stores IndexedDB dédiés et affichées avec un badge identifiant l'utilisateur (8 premiers caractères du `user_id`).
 
 ## Routes principales
 

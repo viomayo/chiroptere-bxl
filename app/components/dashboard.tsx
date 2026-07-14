@@ -1,17 +1,21 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   getSessions,
   getAllPoints,
+  getRemoteSessions,
+  getAllRemotePoints,
   type SessionData,
   type PointData,
   type PointCounts,
+  type RemoteSessionData,
+  type RemotePointData,
 } from '@/lib/idb'
-import { getStoredConflicts, type SyncConflict } from '@/lib/supabase/sync'
-import { MapPin, Radio, Plus, ArrowRight, ChevronRight, AlertTriangle } from 'lucide-react'
+import { getStoredConflicts, pullAllSessionsForSupervisor, type SyncConflict } from '@/lib/supabase/sync'
+import { MapPin, Radio, Plus, ArrowRight, ChevronRight, AlertTriangle, Download, Users } from 'lucide-react'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -83,7 +87,7 @@ function GroupBar({ label, value, total }: { label: string; value: number; total
 
 // ── main ──────────────────────────────────────────────────────────────────────
 
-export default function Dashboard({ name }: { name: string }) {
+export default function Dashboard({ name, userId, isSupervisor }: { name: string; userId: string | null; isSupervisor: boolean }) {
   const router = useRouter()
   const firstName = name.split(' ')[0]
 
@@ -91,17 +95,23 @@ export default function Dashboard({ name }: { name: string }) {
   const [sessions, setSessions] = useState<SessionData[]>([])
   const [allPoints, setAllPoints] = useState<PointData[]>([])
   const [conflicts, setConflicts] = useState<SyncConflict[]>(() => getStoredConflicts())
+  const [remoteSessions, setRemoteSessions] = useState<RemoteSessionData[]>([])
+  const [remotePoints, setRemotePoints] = useState<RemotePointData[]>([])
+  const [pulling, setPulling] = useState(false)
+  const [pullError, setPullError] = useState(false)
 
   useEffect(() => {
     let active = true
-    Promise.all([getSessions(), getAllPoints()]).then(([s, p]) => {
+    Promise.all([getSessions(), getAllPoints(), getRemoteSessions(), getAllRemotePoints()]).then(([s, p, rs, rp]) => {
       if (!active) return
       setSessions(s)
       setAllPoints(p)
+      setRemoteSessions(rs.filter((r) => r.userId !== userId))
+      setRemotePoints(rp)
       setLoading(false)
     })
     return () => { active = false }
-  }, [])
+  }, [userId])
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -109,6 +119,24 @@ export default function Dashboard({ name }: { name: string }) {
     }, 2000)
     return () => clearInterval(interval)
   }, [])
+
+  const handlePullRemote = useCallback(async () => {
+    if (!userId || pulling) return
+    setPulling(true)
+    setPullError(false)
+    try {
+      await pullAllSessionsForSupervisor()
+      const [s, p, rs, rp] = await Promise.all([getSessions(), getAllPoints(), getRemoteSessions(), getAllRemotePoints()])
+      setSessions(s)
+      setAllPoints(p)
+      setRemoteSessions(rs.filter((r) => r.userId !== userId))
+      setRemotePoints(rp)
+    } catch {
+      setPullError(true)
+    } finally {
+      setPulling(false)
+    }
+  }, [userId, pulling])
 
   if (loading) {
     return (
@@ -160,6 +188,8 @@ export default function Dashboard({ name }: { name: string }) {
   })
 
   const hasData = sessions.length > 0
+  const hasRemoteData = remoteSessions.length > 0
+  const showEmptyState = !hasData && !hasRemoteData
   const conflictIds = new Set(conflicts.map((c) => c.sessionId))
 
   return (
@@ -182,7 +212,7 @@ export default function Dashboard({ name }: { name: string }) {
       </div>
 
       {/* Empty state */}
-      {!hasData && (
+      {showEmptyState && (
         <div className="rounded-xl border border-foreground/8 bg-background px-6 py-12 flex flex-col items-center gap-4 text-center">
           <div className="w-10 h-10 rounded-full bg-foreground/5 flex items-center justify-center">
             <Radio size={18} className="text-foreground/25" />
@@ -331,6 +361,96 @@ export default function Dashboard({ name }: { name: string }) {
                 </div>
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Supervisor: remote data */}
+      {isSupervisor && (
+        <div className="flex flex-col gap-3 border-t border-foreground/6 pt-4 mt-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Users size={14} className="text-foreground/40" />
+              <p className="text-xs text-foreground/38 uppercase tracking-widest font-medium">
+                Données des autres utilisateurs
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handlePullRemote}
+              disabled={pulling}
+              className="flex items-center gap-1 text-xs text-foreground/38 hover:text-foreground/65 transition-colors disabled:opacity-40 cursor-pointer"
+            >
+              <Download size={11} className={pulling ? 'animate-bounce' : ''} />
+              {pulling ? 'Récupération…' : 'Récupérer'}
+            </button>
+          </div>
+
+          {pullError && (
+            <div className="rounded-lg border border-red/20 bg-red/6 px-3 py-2">
+              <p className="text-xs text-red font-medium">
+                Erreur lors de la récupération des données. Vérifie ta connexion et réessaie.
+              </p>
+            </div>
+          )}
+
+          {remoteSessions.length === 0 && !pulling && !pullError && (
+            <p className="text-xs text-foreground/30 text-center py-4">
+              Aucune donnée distante. Cliquez sur « Récupérer » pour importer les données de tous les utilisateurs.
+            </p>
+          )}
+
+          {pulling && (
+            <p className="text-xs text-foreground/30 text-center py-4">
+              Récupération des données depuis Supabase…
+            </p>
+          )}
+
+          <div className="flex flex-col gap-2">
+            {remoteSessions.map((s) => {
+              const pts = remotePoints.filter((p) => p.sessionId === s.id)
+              const done = pts.filter((p) => p.statut === 'termine').length
+              const contacts = pts.reduce((acc, p) => {
+                const c = p.counts
+                return acc + c.pipistrelles.total + c.murins.total + c.serotules.total + c.autres.total
+              }, 0)
+              const total = pts.length || s.nbPointsEcoute
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => router.push(`/points?sessionId=${s.id}`)}
+                  className="w-full text-left rounded-xl border border-foreground/8 bg-background px-4 py-3.5 flex items-center gap-3 hover:bg-foreground/3 active:bg-foreground/6 transition-colors cursor-pointer"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-sm font-medium truncate">{s.nomSite}</span>
+                      <span className="text-xs text-foreground/30 font-mono tabular-nums shrink-0">
+                        {formatShortDate(s.debutSession)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2.5 text-xs text-foreground/40">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-foreground/8 text-foreground/45 font-medium uppercase tracking-wider">
+                        {s.userId.substring(0, 8)}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <MapPin size={10} className="shrink-0" />
+                        {s.typeSite}
+                      </span>
+                      <span className="text-foreground/18">·</span>
+                      <span>{done}/{total} pts</span>
+                      {contacts > 0 && (
+                        <>
+                          <span className="text-foreground/18">·</span>
+                          <span>{contacts} contacts</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <ChevronRight size={13} className="text-foreground/20" />
+                </button>
+              )
+            })}
           </div>
         </div>
       )}

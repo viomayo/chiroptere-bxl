@@ -1,7 +1,9 @@
 const DB_NAME = 'chiroptere-bxl'
-const DB_VERSION = 3
+const DB_VERSION = 4
 const STORE_SESSIONS = 'sessions'
 const STORE_POINTS = 'points'
+const STORE_REMOTE_SESSIONS = 'remote_sessions'
+const STORE_REMOTE_POINTS = 'remote_points'
 
 export interface SessionData {
   id: string
@@ -18,6 +20,16 @@ export interface SessionData {
   createdAt: string
   updatedAt: string
   syncedAt: string | null
+}
+
+export interface RemoteSessionData extends SessionData {
+  userId: string
+  userName: string | null
+}
+
+export interface RemotePointData extends PointData {
+  userId: string
+  userName: string | null
 }
 
 export interface SpeciesCount {
@@ -86,6 +98,15 @@ function openDB(): Promise<IDBDatabase> {
         if (!db.objectStoreNames.contains(STORE_POINTS)) {
           const store = db.createObjectStore(STORE_POINTS, { keyPath: 'id' })
           store.createIndex('sessionId', 'sessionId', { unique: false })
+        }
+        if (!db.objectStoreNames.contains(STORE_REMOTE_SESSIONS)) {
+          const rs = db.createObjectStore(STORE_REMOTE_SESSIONS, { keyPath: 'id' })
+          rs.createIndex('userId', 'userId', { unique: false })
+        }
+        if (!db.objectStoreNames.contains(STORE_REMOTE_POINTS)) {
+          const rp = db.createObjectStore(STORE_REMOTE_POINTS, { keyPath: 'id' })
+          rp.createIndex('sessionId', 'sessionId', { unique: false })
+          rp.createIndex('userId', 'userId', { unique: false })
         }
       }
       req.onsuccess = (e) => resolve((e.target as IDBOpenDBRequest).result)
@@ -262,6 +283,75 @@ export async function updatePoint(point: PointData): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_POINTS, 'readwrite')
     tx.objectStore(STORE_POINTS).put(point)
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+// ── Remote data stores (supervisor pull) ─────────────────────────────────────
+
+export async function saveRemoteSession(session: RemoteSessionData): Promise<void> {
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_REMOTE_SESSIONS, 'readwrite')
+    tx.objectStore(STORE_REMOTE_SESSIONS).put(session)
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+export async function saveRemotePoint(point: RemotePointData): Promise<void> {
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_REMOTE_POINTS, 'readwrite')
+    tx.objectStore(STORE_REMOTE_POINTS).put(point)
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+export async function getRemoteSessions(): Promise<RemoteSessionData[]> {
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_REMOTE_SESSIONS, 'readonly')
+    const req = tx.objectStore(STORE_REMOTE_SESSIONS).getAll()
+    req.onsuccess = () => resolve(req.result as RemoteSessionData[])
+    req.onerror = () => reject(req.error)
+  })
+}
+
+export async function getRemotePointsBySession(sessionId: string): Promise<RemotePointData[]> {
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_REMOTE_POINTS, 'readonly')
+    const req = tx.objectStore(STORE_REMOTE_POINTS).index('sessionId').getAll(sessionId)
+    req.onsuccess = () => {
+      const points = (req.result as RemotePointData[]).sort((a, b) => a.numero - b.numero)
+      resolve(points)
+    }
+    req.onerror = () => reject(req.error)
+  })
+}
+
+export async function getAllRemotePoints(): Promise<RemotePointData[]> {
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_REMOTE_POINTS, 'readonly')
+    const req = tx.objectStore(STORE_REMOTE_POINTS).getAll()
+    req.onsuccess = () => {
+      const points = (req.result as RemotePointData[]).sort((a, b) => a.numero - b.numero)
+      resolve(points)
+    }
+    req.onerror = () => reject(req.error)
+  })
+}
+
+export async function clearRemoteData(): Promise<void> {
+  const db = await openDB()
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction([STORE_REMOTE_SESSIONS, STORE_REMOTE_POINTS], 'readwrite')
+    tx.objectStore(STORE_REMOTE_SESSIONS).clear()
+    tx.objectStore(STORE_REMOTE_POINTS).clear()
     tx.oncomplete = () => resolve()
     tx.onerror = () => reject(tx.error)
   })

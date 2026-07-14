@@ -81,3 +81,4 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 - [fait] Injecter l'en-tête `x-user-is-supervisor` dans le middleware `proxy.ts` via une requête best-effort à Supabase.
 - [fait] Extraire l'email depuis le JWT dans `getSessionFromCookies()` pour la détection superviseur même en fallback offline.
 - [fait] Normaliser la casse des emails (LOWER côté SQL, ilike côté middleware, trigger BEFORE INSERT/UPDATE sur `supervisors`).
+- [fait] Implémenter le pull des données de tous les utilisateurs dans le tableau de bord superviseur : nouvelle fonction `pullAllSessionsForSupervisor()` dans `sync.ts`, stores distants dédiés dans IndexedDB (`remote_sessions`, `remote_points`), bouton « Récupérer » dans le Dashboard pour les superviseurs qui déclenche l'import et affiche les sessions avec le badge utilisateur.
