@@ -745,16 +745,51 @@ export default function CompteurScreen() {
     setDetailTranche((prev) => ({ ...prev, [group]: t }))
   }
 
-  function handleAddTranche(group: GroupKey, tranche: number) {
+  function handleRemoveTranche(group: GroupKey, tranche: number) {
     pushSnapshot()
+    setCounts((prev) => {
+      const g = prev[group]
+      if (g.total === 0 || !g.trancheHistory.includes(tranche)) return prev
+      return {
+        ...prev,
+        [group]: {
+          ...g,
+          total: g.total - 1,
+          trancheHistory: g.trancheHistory.filter((t) => t !== tranche),
+          species: g.species
+            .map((s) => {
+              if (s.trancheHistory.includes(tranche)) {
+                return {
+                  ...s,
+                  count: s.count - 1,
+                  trancheHistory: s.trancheHistory.filter((t) => t !== tranche),
+                }
+              }
+              return s
+            })
+            .filter((s) => s.count > 0),
+        },
+      }
+    })
+    setDetailTranche((prev) => ({ ...prev, [group]: null }))
+  }
+
+  function handleAddTranche(group: GroupKey, tranche: number) {
     const g = counts[group]
-    if (!g.trancheHistory.includes(tranche)) {
-      setCounts((prev) => {
-        const g = prev[group]
-        if (g.trancheHistory.includes(tranche)) return prev
-        return { ...prev, [group]: { ...g, total: g.total + 1, trancheHistory: [...g.trancheHistory, tranche] } }
-      })
+    if (g.trancheHistory.includes(tranche)) {
+      if (detailTranche[group] === tranche) {
+        handleRemoveTranche(group, tranche)
+      } else {
+        setDetailTranche((prev) => ({ ...prev, [group]: tranche }))
+      }
+      return
     }
+    pushSnapshot()
+    setCounts((prev) => {
+      const g = prev[group]
+      if (g.trancheHistory.includes(tranche)) return prev
+      return { ...prev, [group]: { ...g, total: g.total + 1, trancheHistory: [...g.trancheHistory, tranche] } }
+    })
     setDetailTranche((prev) => ({ ...prev, [group]: tranche }))
   }
 

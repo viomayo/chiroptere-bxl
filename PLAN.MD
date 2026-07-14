@@ -86,5 +86,5 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 ## Phase 9 — Édition post-point et révision
 
 - [fait] Ajouter un historique d'actions (undo) dans le compteur : chaque action (+, -, MAX, ajout d'espèce) sauvegarde un snapshot des comptages ; un bouton « Annuler » permet de restaurer l'état précédent (pile de 50 max).
-- [fait] Rendre les pastilles de tranches remplies cliquables : cliquer une pastille déjà remplie ouvre le sélecteur d'espèces pour cette tranche, sans ajouter de comptage supplémentaire.
+- [fait] Rendre les pastilles de tranches remplies cliquables : un clic ouvre le sélecteur d'espèces pour cette tranche ; un second clic (picker déjà ouvert) retire le contact du groupe et des espèces associées pour cette tranche.
 - [fait] Ajouter un mode « Révision » accessible après la fin du point : grille espèces × tranches complète avec cases à cocher pour chaque combinaison, permettant d'ajuster les espèces a posteriori.

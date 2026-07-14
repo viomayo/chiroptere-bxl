@@ -16,7 +16,7 @@ L'application est aujourd'hui un prototype local-first fonctionnel :
 - le sélecteur d'espèces est intégré en ligne au compteur : cliquer le bouton + d'un groupe ou une pastille de tranche ouvre un choix d'espèces immédiat pour cette tranche, sans accordéon séparé ; un résumé des espèces comptées apparaît sous chaque groupe ;
 - le bouton MAX remplit toutes les tranches d'un groupe en un clic et active le mode « auto-picker » : le sélecteur d'espèces s'ouvre automatiquement à chaque nouvelle tranche pour noter les espèces présentes tranche par tranche ;
 - le bouton − retire la tranche courante (celle du timer) du groupe et des espèces associées ; un bouton « Annuler » (undo) permet de revenir sur la dernière action (+, -, MAX, ajout d'espèce) en restaurant l'état précédent ;
-- les pastilles de tranches déjà remplies sont également cliquables : elles ouvrent le sélecteur d'espèces pour cette tranche sans ajouter de comptage supplémentaire, permettant d'ajuster les espèces a posteriori ;
+- les pastilles de tranches déjà remplies sont cliquables : un clic ouvre le sélecteur d'espèces pour cette tranche ; un second clic (picker déjà ouvert) retire le contact du groupe et des espèces associées, permettant de corriger un clic accidentel ;
 - un mode « Révision » est disponible après la fin du point : il affiche une grille complète espèces × tranches avec des cases à cocher pour chaque combinaison ;
 - les noms d'espèces sont affichés en français complet (ex. Pipistrelle commune, Murin de Daubenton) ;
 - la localisation de chaque point (description prédéfinie issue des données CSV) est affichée en lecture seule dans le compteur, séparée du champ de remarques libres de l'observateur ;
