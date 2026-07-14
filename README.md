@@ -10,8 +10,8 @@ L'application est aujourd'hui un prototype local-first fonctionnel :
 - les données de terrain sont enregistrées localement dans IndexedDB, dans le navigateur ;
 - un footer avec les crédits des développeurs et leurs liens GitHub est affiché sur toutes les pages ;
 - la création de sessions, les points d'écoute (avec coordonnées X/Y et descriptions de localisation prédéfinies), le compteur chronométré, la sauvegarde automatique des brouillons, la remise à zéro, le tableau de bord, les exports CSV/JSON (avec coordonnées) et les bases PWA sont en place ;
-- les groupes d'espèces (pipistrelles, murins, sérotules, autres) sont identifiés par des couleurs distinctes (violet, vert, orange, rose) sur les boutons +/− et les badges ;
-- les pastilles de tranches sont cliquables : un clic sur une pastille vide ajoute directement un comptage dans cette tranche, sans passer par le bouton + ;
+- les groupes d'espèces (pipistrelles, sérotules, murins, autres) sont identifiés par des couleurs distinctes (violet, orange, vert, rose) et disposés en grille 2×2 dans le compteur ;
+- les pastilles de tranches sont cliquables : un clic sur une pastille vide ajoute directement un comptage dans cette tranche, sans passer par le bouton + ; l'espacement réduit au mobile (`gap-px`) permet d'afficher les 18 tranches des transects forestiers sur une seule ligne ;
 - chaque compteur (groupe et espèce) est indépendant : cliquer une pastille dans un groupe ou une espèce n'affecte pas les autres ;
 - le sélecteur d'espèces est intégré en ligne au compteur : cliquer le bouton + d'un groupe ou une pastille de tranche ouvre un choix d'espèces immédiat pour cette tranche, sans accordéon séparé ; un résumé des espèces comptées apparaît sous chaque groupe ;
 - le bouton MAX remplit toutes les tranches d'un groupe en un clic et active le mode « auto-picker » : le sélecteur d'espèces s'ouvre automatiquement à chaque nouvelle tranche pour noter les espèces présentes tranche par tranche ;
