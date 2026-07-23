@@ -97,6 +97,7 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 - [fait] Ajouter `handlerDidError` sur le cache RSC avec fallback vers la page d'accueil si la donnée RSC n'est pas en cache.
 - [fait] Inverser l'ordre dans le proxy : extraire la session depuis le cookie JWT avant tout appel Supabase, pour que les redirections auth ne nécessitent pas de réseau.
 - [fait] Gérer le format `base64-` + base64url du cookie Supabase SSR (encodage par défaut) et le chunking en cookies multiples (`sb-{ref}-auth-token.0`, `.1`…) pour les tokens > 3 Ko.
+- [fait] Remplacer `router.push()` par `<a href>` dans la liste des points pour garantir l'accès hors ligne : le clic sur un point déclenchait une navigation client-side (fetch RSC) qui échouait hors ligne car `handlerDidError` du cache RSC renvoie du HTML non interprété par Next.js. En passant à `<a href>` (navigation plein document), le service worker intercepte la requête `'navigate'` et `handlerDidError` du cache navigate sert le HTML depuis le cache pathname (`/compteur`), les données sont ensuite lues depuis IndexedDB.
 
 ## Phase 11 — Pull multi-appareil
 
