@@ -112,6 +112,14 @@ export default function Dashboard({ name, userId, isSupervisor }: { name: string
     setDeletingId(null)
   }
 
+  const loadData = useCallback(async () => {
+    const [s, p, rs, rp] = await Promise.all([getSessions(), getAllPoints(), getRemoteSessions(), getAllRemotePoints()])
+    setSessions(s)
+    setAllPoints(p)
+    setRemoteSessions(rs.filter((r) => r.userId !== userId))
+    setRemotePoints(rp)
+  }, [userId])
+
   useEffect(() => {
     let active = true
     Promise.all([getSessions(), getAllPoints(), getRemoteSessions(), getAllRemotePoints()]).then(([s, p, rs, rp]) => {
@@ -122,8 +130,10 @@ export default function Dashboard({ name, userId, isSupervisor }: { name: string
       setRemotePoints(rp)
       setLoading(false)
     })
-    return () => { active = false }
-  }, [userId])
+    const onSync = () => { loadData() }
+    window.addEventListener('synced', onSync)
+    return () => { active = false; window.removeEventListener('synced', onSync) }
+  }, [userId, loadData])
 
   useEffect(() => {
     const interval = setInterval(() => {

@@ -2,7 +2,9 @@ import { createClient } from './client'
 import {
   getSessions,
   getPointsBySession,
+  getSessionById,
   saveSession,
+  saveSessionWithPoints,
   saveRemoteSession,
   saveRemotePoint,
   clearRemoteData,
@@ -413,6 +415,147 @@ export async function resolveConflict(
       }
     }
   }
+}
+
+// ── User pull: fetch own data from Supabase into local stores ─────────────────
+
+export interface PullResult {
+  imported: number
+  merged: number
+  errors: number
+}
+
+export async function pullMySessions(userId: string): Promise<PullResult> {
+  const supabase = createClient()
+  const result: PullResult = { imported: 0, merged: 0, errors: 0 }
+
+  const { data: remoteSessions, error: sessErr } = await supabase
+    .from('sessions')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+
+  if (sessErr || !remoteSessions) return result
+
+  for (const rs of remoteSessions as Record<string, unknown>[]) {
+    const sessionId = rs.id as string
+    const existing = await getSessionById(sessionId)
+    const remoteUpdated = new Date(rs.updated_at as string).getTime()
+
+    if (existing) {
+      const localUpdated = new Date(existing.updatedAt).getTime()
+      if (remoteUpdated <= localUpdated) continue
+    }
+
+    const session: SessionData = {
+      id: sessionId,
+      typeSite: rs.type_site as string,
+      nomSite: rs.nom_site as string,
+      acronyme: rs.acronyme as string,
+      debutSession: rs.debut_session as string,
+      finSession: (rs.fin_session as string) || '',
+      compteurPrincipal: rs.compteur_principal as string,
+      autresCompteurs: (rs.autres_compteurs as string) || '',
+      nbPointsEcoute: rs.nb_points_ecoute as number,
+      detecteurs: (rs.detecteurs as string[]) || [],
+      commentaire: (rs.commentaire as string) || '',
+      createdAt: rs.created_at as string,
+      updatedAt: rs.updated_at as string,
+      syncedAt: rs.synced_at as string || null,
+    }
+
+    const { data: remotePoints } = await supabase
+      .from('points')
+      .select('*')
+      .eq('session_id', sessionId)
+
+    if (!remotePoints) {
+      if (!existing) {
+        await saveSession(session)
+        result.imported++
+      } else {
+        result.merged++
+      }
+      continue
+    }
+
+    const { data: remoteObs } = await supabase
+      .from('observations')
+      .select('*')
+      .eq('session_id', sessionId)
+
+    const obsByPoint = new Map<string, Record<string, unknown>[]>()
+    if (remoteObs) {
+      for (const ro of remoteObs as Record<string, unknown>[]) {
+        const pid = ro.point_id as string
+        const arr = obsByPoint.get(pid) ?? []
+        arr.push(ro)
+        obsByPoint.set(pid, arr)
+      }
+    }
+
+    const points: PointData[] = []
+    for (const rp of remotePoints as Record<string, unknown>[]) {
+      const counts = defaultCounts()
+      const pointObs = obsByPoint.get(rp.id as string) ?? []
+
+      for (const ro of pointObs) {
+        const group = ro.groupe as string
+        const espece = ro.espece as string
+        const total = ro.total as number
+        const tranches = ro.tranches as number[]
+
+        if (espece === '__groupe__') {
+          if (group in counts) {
+            ;(counts[group as keyof PointCounts] as GroupCount).total = total
+            ;(counts[group as keyof PointCounts] as GroupCount).trancheHistory = tranches
+          }
+        } else {
+          if (group in counts) {
+            const gc = counts[group as keyof PointCounts]
+            const existingSp = gc.species.find((s) => s.name === espece)
+            if (existingSp) {
+              existingSp.count = total
+              existingSp.trancheHistory = tranches
+            } else {
+              gc.species.push({ name: espece, count: total, trancheHistory: tranches })
+            }
+          }
+        }
+      }
+
+      points.push({
+        id: rp.id as string,
+        sessionId: rp.session_id as string,
+        numero: rp.numero as number,
+        heureDebut: (rp.heure_debut as string) || null,
+        heureFin: (rp.heure_fin as string) || null,
+        nbEspeces: (rp.nb_especes as number) || 0,
+        statut: (rp.statut as PointData['statut']) || 'non_demarre',
+        counts,
+        localisation: (rp.localisation as string) || '',
+        commentaire: (rp.commentaire as string) || '',
+        timerState: null,
+        coordX: (rp.coord_x as number) || null,
+        coordY: (rp.coord_y as number) || null,
+        updatedAt: (rp.updated_at as string) || new Date().toISOString(),
+      })
+    }
+
+    try {
+      if (existing) {
+        await saveSessionWithPoints(session, points)
+        result.merged++
+      } else {
+        await saveSessionWithPoints(session, points)
+        result.imported++
+      }
+    } catch {
+      result.errors++
+    }
+  }
+
+  return result
 }
 
 // ── Supervisor pull: fetch all users' data from Supabase ──────────────────────

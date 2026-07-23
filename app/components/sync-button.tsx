@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useOnlineSync } from '@/lib/hooks/use-online-sync'
-import { syncAll, type SyncResult } from '@/lib/supabase/sync'
+import { syncAll, pullMySessions, type SyncResult, type PullResult } from '@/lib/supabase/sync'
 import { RefreshCw } from 'lucide-react'
 import ConflictModal from './conflict-modal'
 
@@ -10,6 +10,7 @@ export default function SyncButton({ userId }: { userId: string | null }) {
   const [status, setStatus] = useState<'idle' | 'syncing' | 'error'>('idle')
   const [lastResult, setLastResult] = useState<SyncResult | null>(null)
   const [showConflicts, setShowConflicts] = useState(false)
+  const [lastPull, setLastPull] = useState<PullResult | null>(null)
 
   const handleSync = useCallback(async () => {
     if (!userId || status === 'syncing') return
@@ -17,10 +18,14 @@ export default function SyncButton({ userId }: { userId: string | null }) {
     try {
       const result = await syncAll(userId)
       setLastResult(result)
-      setStatus(result.errors > 0 ? 'error' : 'idle')
       if (result.conflicts.length > 0) {
         setShowConflicts(true)
+      } else {
+        const pull = await pullMySessions(userId)
+        setLastPull(pull)
+        window.dispatchEvent(new CustomEvent('synced', { detail: pull }))
       }
+      setStatus(result.errors > 0 ? 'error' : 'idle')
     } catch {
       setStatus('error')
     }
@@ -29,6 +34,15 @@ export default function SyncButton({ userId }: { userId: string | null }) {
   useOnlineSync(handleSync)
 
   const nConflicts = lastResult?.conflicts.length ?? 0
+
+  const label =
+    status === 'syncing'
+      ? 'Sync…'
+      : nConflicts > 0
+        ? `${nConflicts} conflit${nConflicts > 1 ? 's' : ''}`
+        : lastPull && (lastPull.imported > 0 || lastPull.merged > 0)
+          ? `+${lastPull.imported} / ${lastPull.merged}`
+          : 'Sync'
 
   return (
     <>
@@ -41,23 +55,17 @@ export default function SyncButton({ userId }: { userId: string | null }) {
           !userId
             ? 'Non connecté'
             : status === 'syncing'
-              ? 'Synchronisation…'
+              ? 'Push + Pull…'
               : nConflicts > 0
-                ? `${nConflicts} conflit${nConflicts > 1 ? 's' : ''}`
-                : 'Synchroniser'
+                ? `${nConflicts} conflit${nConflicts > 1 ? 's' : ''} — cliquer pour résoudre`
+                : 'Synchroniser (push + pull)'
         }
       >
         <RefreshCw
           size={13}
           className={status === 'syncing' ? 'animate-spin' : ''}
         />
-        <span>
-          {status === 'syncing'
-            ? 'Sync…'
-            : nConflicts > 0
-              ? `${nConflicts} conflit${nConflicts > 1 ? 's' : ''}`
-              : 'Sync'}
-        </span>
+        <span>{label}</span>
       </button>
 
       {showConflicts && lastResult && lastResult.conflicts.length > 0 && userId && (

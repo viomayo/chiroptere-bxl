@@ -97,3 +97,9 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 - [fait] Ajouter `handlerDidError` sur le cache RSC avec fallback vers la page d'accueil si la donnée RSC n'est pas en cache.
 - [fait] Inverser l'ordre dans le proxy : extraire la session depuis le cookie JWT avant tout appel Supabase, pour que les redirections auth ne nécessitent pas de réseau.
 - [fait] Gérer le format `base64-` + base64url du cookie Supabase SSR (encodage par défaut) et le chunking en cookies multiples (`sb-{ref}-auth-token.0`, `.1`…) pour les tokens > 3 Ko.
+
+## Phase 11 — Pull multi-appareil
+
+- [fait] Ajouter `pullMySessions()` dans `sync.ts` : rapatrie les sessions, points et observations de l'utilisateur depuis Supabase vers les stores locaux IndexedDB, avec fusion basée sur `updatedAt`.
+- [fait] Modifier le bouton Sync pour faire push + pull : pousse d'abord les données locales, puis tire les données distantes en l'absence de conflits.
+- [fait] Ajouter un événement custom `synced` sur `window` pour recharger automatiquement le tableau de bord après un pull réussi.
