@@ -324,6 +324,16 @@ export async function saveRemotePoint(point: RemotePointData): Promise<void> {
   })
 }
 
+export async function getRemoteSessionById(id: string): Promise<RemoteSessionData | undefined> {
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_REMOTE_SESSIONS, 'readonly')
+    const req = tx.objectStore(STORE_REMOTE_SESSIONS).get(id)
+    req.onsuccess = () => resolve(req.result as RemoteSessionData | undefined)
+    req.onerror = () => reject(req.error)
+  })
+}
+
 export async function getRemoteSessions(): Promise<RemoteSessionData[]> {
   const db = await openDB()
   return new Promise((resolve, reject) => {

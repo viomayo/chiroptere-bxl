@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { getSessions, getSessionById, initSessionPoints, type SessionData, type PointData, type PointCounts } from '@/lib/idb'
-import { ChevronRight, Download } from 'lucide-react'
+import { getSessions, getSessionById, initSessionPoints, getRemoteSessionById, getRemotePointsBySession, type SessionData, type PointData, type PointCounts } from '@/lib/idb'
+import { ChevronRight, Download, Eye } from 'lucide-react'
 
 type Statut = PointData['statut']
 type GroupKey = keyof PointCounts
@@ -175,14 +175,23 @@ export default function PointsList() {
   const sessionId = searchParams.get('sessionId')
   const [session, setSession] = useState<SessionData | null>(null)
   const [points, setPoints] = useState<PointData[]>([])
+  const [isRemote, setIsRemote] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let active = true
     async function load() {
       let target: SessionData | undefined
+      let remote = false
       if (sessionId) {
         target = await getSessionById(sessionId)
+        if (!target) {
+          const remoteTarget = await getRemoteSessionById(sessionId)
+          if (remoteTarget) {
+            target = remoteTarget
+            remote = true
+          }
+        }
       } else {
         const sessions = await getSessions()
         target = sessions.sort(
@@ -194,10 +203,16 @@ export default function PointsList() {
         setLoading(false)
         return
       }
-      const pts = target.nbPointsEcoute > 0 ? await initSessionPoints(target) : []
+      let pts: PointData[]
+      if (remote) {
+        pts = await getRemotePointsBySession(target.id)
+      } else {
+        pts = target.nbPointsEcoute > 0 ? await initSessionPoints(target) : []
+      }
       if (!active) return
       setSession(target)
       setPoints(pts)
+      setIsRemote(remote)
       setLoading(false)
     }
     load()
@@ -238,19 +253,28 @@ export default function PointsList() {
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-xs text-foreground/40 font-mono tracking-wide uppercase">
-        Session · {session.nomSite}
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-foreground/40 font-mono tracking-wide uppercase">
+          Session · {session.nomSite}
+        </p>
+        {isRemote && (
+          <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-foreground/8 text-foreground/45 font-medium uppercase tracking-wider">
+            <Eye size={10} />
+            Lecture seule
+          </span>
+        )}
+      </div>
 
       {points.map((point) => {
         const label = `${session.acronyme}-${String(point.numero).padStart(2, '0')}`
         const groups = getGroupTotals(point.counts)
+        const Wrapper = isRemote ? 'div' : 'button'
         return (
-          <button
+          <Wrapper
             key={point.id}
-            type="button"
-            onClick={() => router.push(`/compteur?pointId=${point.id}`)}
-            className="w-full text-left rounded-xl border border-foreground/8 bg-background px-4 py-3.5 flex items-center gap-3 transition-colors hover:bg-foreground/3 active:bg-foreground/6 cursor-pointer"
+            type={isRemote ? undefined : 'button'}
+            onClick={isRemote ? undefined : () => router.push(`/compteur?pointId=${point.id}`)}
+            className={`w-full text-left rounded-xl border border-foreground/8 bg-background px-4 py-3.5 flex items-center gap-3 transition-colors ${isRemote ? '' : 'hover:bg-foreground/3 active:bg-foreground/6 cursor-pointer'}`}
           >
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -282,29 +306,31 @@ export default function PointsList() {
                 </div>
               )}
             </div>
-            <ChevronRight size={15} className="text-foreground/20 shrink-0" />
-          </button>
+            {!isRemote && <ChevronRight size={15} className="text-foreground/20 shrink-0" />}
+          </Wrapper>
         )
       })}
 
-      <div className="flex gap-2 pt-1">
-        <button
-          type="button"
-          onClick={() => exportCSV(session, points)}
-          className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-foreground/10 px-4 py-2.5 text-xs font-medium text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80 transition-colors cursor-pointer"
-        >
-          <Download size={13} />
-          Exporter CSV
-        </button>
-        <button
-          type="button"
-          onClick={() => exportJSON(session, points)}
-          className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-foreground/10 px-4 py-2.5 text-xs font-medium text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80 transition-colors cursor-pointer"
-        >
-          <Download size={13} />
-          Exporter JSON
-        </button>
-      </div>
+      {!isRemote && (
+        <div className="flex gap-2 pt-1">
+          <button
+            type="button"
+            onClick={() => exportCSV(session, points)}
+            className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-foreground/10 px-4 py-2.5 text-xs font-medium text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80 transition-colors cursor-pointer"
+          >
+            <Download size={13} />
+            Exporter CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => exportJSON(session, points)}
+            className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-foreground/10 px-4 py-2.5 text-xs font-medium text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80 transition-colors cursor-pointer"
+          >
+            <Download size={13} />
+            Exporter JSON
+          </button>
+        </div>
+      )}
     </div>
   )
 }
