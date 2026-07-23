@@ -268,13 +268,13 @@ export default function PointsList() {
       {points.map((point) => {
         const label = `${session.acronyme}-${String(point.numero).padStart(2, '0')}`
         const groups = getGroupTotals(point.counts)
-        const Wrapper = isRemote ? 'div' : 'button'
+        const compteurHref = `/compteur?pointId=${point.id}`
         return (
-          <Wrapper
+          <a
             key={point.id}
-            type={isRemote ? undefined : 'button'}
-            onClick={isRemote ? undefined : () => router.push(`/compteur?pointId=${point.id}`)}
-            className={`w-full text-left rounded-xl border border-foreground/8 bg-background px-4 py-3.5 flex items-center gap-3 transition-colors ${isRemote ? '' : 'hover:bg-foreground/3 active:bg-foreground/6 cursor-pointer'}`}
+            href={isRemote ? undefined : compteurHref}
+            className={`block w-full text-left rounded-xl border border-foreground/8 bg-background px-4 py-3.5 flex items-center gap-3 transition-colors ${isRemote ? 'select-none' : 'hover:bg-foreground/3 active:bg-foreground/6 cursor-pointer'}`}
+            tabIndex={isRemote ? -1 : 0}
           >
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -307,7 +307,7 @@ export default function PointsList() {
               )}
             </div>
             {!isRemote && <ChevronRight size={15} className="text-foreground/20 shrink-0" />}
-          </Wrapper>
+          </a>
         )
       })}
 
