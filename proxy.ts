@@ -66,28 +66,14 @@ export async function proxy(request: NextRequest) {
   let userAvatar: string | null = null
   let userEmail: string | null = null
 
-  try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      userId = user.id
-      userName =
-        (user.user_metadata?.full_name as string | undefined) ??
-        (user.user_metadata?.name as string | undefined) ??
-        user.email ??
-        null
-      userAvatar = (user.user_metadata?.avatar_url as string | undefined) ?? null
-      userEmail = user.email ?? null
-    }
-  } catch {
-    // Offline: fall back to cookie
-    const cookieSession = getSessionFromCookies(request.cookies.getAll())
-    userId = cookieSession.userId
-    userName = cookieSession.userName
-    userAvatar = cookieSession.userAvatar
-    userEmail = cookieSession.userEmail
-  }
+  // Extraire la session depuis le cookie d'abord (0ms, pas de réseau)
+  const cookieSession = getSessionFromCookies(request.cookies.getAll())
+  userId = cookieSession.userId
+  userName = cookieSession.userName
+  userAvatar = cookieSession.userAvatar
+  userEmail = cookieSession.userEmail
 
-  if (!userId && !isPublic) {
+  if (!isPublic && !userId) {
     return applyPending(NextResponse.redirect(new URL('/login', request.url)))
   }
 

@@ -163,11 +163,9 @@ function TrancheDots({
 // ── Species summary (dots for all tranches) ──────────────────────────────────
 
 function SpeciesSummary({
-  groupKey,
   count,
   nbTranches,
 }: {
-  groupKey: GroupKey
   count: GroupCount
   nbTranches: number
 }) {
@@ -393,7 +391,7 @@ function GroupCard({
 
       <TrancheDots history={count.trancheHistory} nbTranches={nbTranches} onAdd={onAddTranche} />
 
-      <SpeciesSummary groupKey={groupKey} count={count} nbTranches={nbTranches} />
+      <SpeciesSummary count={count} nbTranches={nbTranches} />
 
       {detailTranche != null && (
         <InlineSpeciesPicker

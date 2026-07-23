@@ -90,3 +90,9 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 - [fait] Ajouter un mode « Révision » accessible après la fin du point : grille espèces × tranches complète avec cases à cocher pour chaque combinaison, permettant d'ajuster les espèces a posteriori.
 - [fait] Réduire l'espacement mobile entre les pastilles de tranches (`gap-px` au lieu de `gap-0.5`) pour que les 18 tranches des transects forestiers tiennent sur une seule ligne.
 - [fait] Réorganiser la grille des groupes dans le compteur : sérotules en haut à droite, murins en bas à gauche.
+
+## Phase 10 — Fiabilisation offline
+
+- [fait] Ajouter `networkTimeoutSeconds: 3` sur les caches navigate et RSC du service worker pour éviter les timeouts réseau de 30+s en mode hors-ligne.
+- [fait] Ajouter `handlerDidError` sur le cache RSC avec fallback vers la page d'accueil si la donnée RSC n'est pas en cache.
+- [fait] Inverser l'ordre dans le proxy : extraire la session depuis le cookie JWT avant tout appel Supabase, pour que les redirections auth ne nécessitent pas de réseau.

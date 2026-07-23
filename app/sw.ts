@@ -25,6 +25,7 @@ const navigateCache: RuntimeCaching = {
   },
   handler: new NetworkFirst({
     cacheName: NAV_CACHE,
+    networkTimeoutSeconds: 3,
     plugins: [
       new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 24 * 60 * 60 }),
       {
@@ -51,7 +52,7 @@ const navigateCache: RuntimeCaching = {
           const home = pathname('/')
           const homeCached = await caches.match(home)
           if (homeCached) return homeCached
-          return undefined
+          return Response.error()
         },
       },
     ],
@@ -68,8 +69,9 @@ const rscCache: RuntimeCaching = {
   },
   handler: new NetworkFirst({
     cacheName: RSC_CACHE,
+    networkTimeoutSeconds: 3,
     plugins: [
-      new ExpirationPlugin({ maxEntries: 32, maxAgeSeconds: 24 * 60 * 60 }),
+      new ExpirationPlugin({ maxEntries: 32, maxAgeSeconds: 12 * 60 * 60 }),
       {
         cacheDidUpdate: (param) => {
           const promise = (async () => {
@@ -92,6 +94,19 @@ const rscCache: RuntimeCaching = {
             }
           })()
           param.event.waitUntil(promise)
+        },
+      },
+      {
+        handlerDidError: async ({ request }) => {
+          const pn = pathname(request.url)
+          if (pn !== request.url) {
+            const cached = await caches.match(pn)
+            if (cached) return cached
+          }
+          const home = pathname('/')
+          const homeCached = await caches.match(home)
+          if (homeCached) return homeCached
+          return Response.error()
         },
       },
     ],
