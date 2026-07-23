@@ -219,6 +219,19 @@ export default function PointsList() {
     return () => { active = false }
   }, [sessionId])
 
+  useEffect(() => {
+    if (isRemote || !sessionId) return
+    if (typeof caches === 'undefined') return
+    caches.open('pages-navigate').then((cache) => {
+      cache.match('/compteur').then((existing) => {
+        if (existing) return
+        fetch('/compteur', { credentials: 'same-origin' }).then((res) => {
+          if (res.ok && !res.redirected) cache.put('/compteur', res)
+        }).catch(() => {})
+      })
+    }).catch(() => {})
+  }, [isRemote, sessionId])
+
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
