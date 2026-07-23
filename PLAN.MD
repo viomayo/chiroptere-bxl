@@ -96,3 +96,4 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 - [fait] Ajouter `networkTimeoutSeconds: 3` sur les caches navigate et RSC du service worker pour éviter les timeouts réseau de 30+s en mode hors-ligne.
 - [fait] Ajouter `handlerDidError` sur le cache RSC avec fallback vers la page d'accueil si la donnée RSC n'est pas en cache.
 - [fait] Inverser l'ordre dans le proxy : extraire la session depuis le cookie JWT avant tout appel Supabase, pour que les redirections auth ne nécessitent pas de réseau.
+- [fait] Gérer le format `base64-` + base64url du cookie Supabase SSR (encodage par défaut) et le chunking en cookies multiples (`sb-{ref}-auth-token.0`, `.1`…) pour les tokens > 3 Ko.

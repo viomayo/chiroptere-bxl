@@ -32,7 +32,8 @@ L'application est aujourd'hui un prototype local-first fonctionnel :
 - le fonctionnement hors-ligne est fiabilisé par :
   - un timeout réseau de 3s sur les caches navigate (`pages-navigate`) et RSC (`pages-rsc`) du service worker, évitant les attentes de 30+s avant le fallback cache ;
   - un `handlerDidError` sur le cache RSC qui sert la page d'accueil en fallback si la donnée RSC n'est pas en cache ;
-  - l'extraction de la session utilisateur depuis le cookie JWT dans le proxy avant tout appel réseau Supabase, garantissant que les redirections auth ne bloquent pas le mode hors-ligne.
+  - l'extraction de la session utilisateur depuis le cookie JWT dans le proxy avant tout appel réseau Supabase, garantissant que les redirections auth ne bloquent pas le mode hors-ligne ;
+  - le support du format `base64-` + base64url (encodage par défaut de `@supabase/ssr`) et du chunking en cookies `sb-{ref}-auth-token.0`, `.1`… utilisé quand le JWT dépasse 3 Ko.
 
 ## Routes principales
 

@@ -14,16 +14,51 @@ function decodeJWT(token: string): Record<string, unknown> | null {
   }
 }
 
+function base64urlDecode(str: string): string {
+  let b64 = str.replace(/-/g, '+').replace(/_/g, '/')
+  while (b64.length % 4) b64 += '='
+  return atob(b64)
+}
+
+const B64URL_PREFIX = 'base64-'
+
+// Supabase SSR (cookieEncoding: "base64url") stocke le token JWT sous
+// la forme "base64-" + base64url(jwt).  Le token peut être fragmenté en
+// plusieurs cookies sb-{ref}-auth-token.0, .1, … si > 3KB.
+// Cette fonction combine les fragments et décode la valeur.
+function extractAuthToken(allCookies: { name: string; value: string }[]): string | null {
+  const basePattern = /^sb-.+-auth-token$/
+  const chunkPattern = /^(sb-.+-auth-token)\.(\d+)$/
+
+  const baseCookie = allCookies.find((c) => basePattern.test(c.name))
+  if (baseCookie) return baseCookie.value
+
+  const chunks = allCookies
+    .map((c) => ({ m: c.name.match(chunkPattern), v: c.value }))
+    .filter((c): c is { m: RegExpMatchArray; v: string } => c.m !== null)
+    .sort((a, b) => parseInt(a.m[2], 10) - parseInt(b.m[2], 10))
+
+  if (chunks.length === 0) return null
+  return chunks.map((c) => c.v).join('')
+}
+
+function parseTokenValue(raw: string): Record<string, unknown> | null {
+  const value = raw.startsWith(B64URL_PREFIX)
+    ? base64urlDecode(raw.slice(B64URL_PREFIX.length))
+    : raw
+  return decodeJWT(value)
+}
+
 function getSessionFromCookies(allCookies: { name: string; value: string }[]): {
   userId: string | null
   userName: string | null
   userAvatar: string | null
   userEmail: string | null
 } {
-  const authCookie = allCookies.find((c) => c.name.startsWith('sb-') && c.name.endsWith('-auth-token'))
-  if (!authCookie) return { userId: null, userName: null, userAvatar: null, userEmail: null }
+  const token = extractAuthToken(allCookies)
+  if (!token) return { userId: null, userName: null, userAvatar: null, userEmail: null }
 
-  const parsed = decodeJWT(authCookie.value)
+  const parsed = parseTokenValue(token)
   if (!parsed) return { userId: null, userName: null, userAvatar: null, userEmail: null }
 
   const md = parsed.user_metadata as Record<string, unknown> | undefined
