@@ -71,7 +71,7 @@ npm run build
 
 ## Données
 
-Les données sont stockées localement dans IndexedDB et synchronisées unidirectionnellement (local → Supabase) via un bouton Sync dans l'en-tête ou automatiquement au retour en ligne. Le schéma Supabase (`sessions`, `points`, `observations`, `species_ref`, `supervisors`) est défini dans `supabase/init.sql` avec RLS et seed des espèces. Les superviseurs (table `supervisors`) peuvent lire toutes les données via une politique RLS dédiée.
+Les données sont stockées localement dans IndexedDB et synchronisées bidirectionnellement (local ⇄ Supabase) via un bouton Sync dans l'en-tête ou automatiquement au retour en ligne. Le pull rapatrie les données de l'utilisateur depuis Supabase et les fusionne via `updatedAt`. Le schéma Supabase (`sessions`, `points`, `observations`, `species_ref`, `supervisors`) est défini dans `supabase/init.sql` avec RLS et seed des espèces. Les superviseurs (table `supervisors`) peuvent lire toutes les données via une politique RLS dédiée.
 
 Les exports sont générés côté client :
 
@@ -82,7 +82,6 @@ Chaque site dispose de points d'écoute prédéfinis avec coordonnées (X, Y) et
 
 ## Limites connues
 
-- Pas de récupération multi-appareil.
 - Pas encore de tests automatisés.
 
 ## Démo
