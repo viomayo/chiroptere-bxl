@@ -334,9 +334,8 @@ export default function Dashboard({ name, userId, isSupervisor }: { name: string
 
           <div className="flex flex-col gap-2">
             {recentSessions.map(({ session, done, contacts, total }) => (
-              <button
+              <div
                 key={session.id}
-                type="button"
                 onClick={() => router.push(`/points?sessionId=${session.id}`)}
                 className="w-full text-left rounded-xl border border-foreground/8 bg-background px-4 py-3.5 flex items-center gap-3 hover:bg-foreground/3 active:bg-foreground/6 transition-colors cursor-pointer"
               >
@@ -390,7 +389,7 @@ export default function Dashboard({ name, userId, isSupervisor }: { name: string
                   </button>
                   <ChevronRight size={13} className="text-foreground/20" />
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         </div>
