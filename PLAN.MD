@@ -97,9 +97,12 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 - [fait] Ajouter `handlerDidError` sur le cache RSC avec fallback vers la page d'accueil si la donnée RSC n'est pas en cache.
 - [fait] Inverser l'ordre dans le proxy : extraire la session depuis le cookie JWT avant tout appel Supabase, pour que les redirections auth ne nécessitent pas de réseau.
 - [fait] Gérer le format `base64-` + base64url du cookie Supabase SSR (encodage par défaut) et le chunking en cookies multiples (`sb-{ref}-auth-token.0`, `.1`…) pour les tokens > 3 Ko.
+- [fait] Remplacer `router.push()` par `<a href>` dans la liste des points pour garantir l'accès hors ligne : le clic sur un point déclenchait une navigation client-side (fetch RSC) qui échouait hors ligne car `handlerDidError` du cache RSC renvoie du HTML non interprété par Next.js. En passant à `<a href>` (navigation plein document), le service worker intercepte la requête `'navigate'` et `handlerDidError` du cache navigate sert le HTML depuis le cache pathname (`/compteur`), les données sont ensuite lues depuis IndexedDB.
+- [fait] Pré-cacheter `/compteur` dans le cache navigate dès qu'une session locale est ouverte dans `PointsList` : un `useEffect` fetch `/compteur` (sans query params) et le stocke dans `pages-navigate`. Ainsi, même sans avoir visité le compteur une seule fois en ligne, tous les points d'une session préparée sont accessibles hors ligne.
 
 ## Phase 11 — Pull multi-appareil
 
 - [fait] Ajouter `pullMySessions()` dans `sync.ts` : rapatrie les sessions, points et observations de l'utilisateur depuis Supabase vers les stores locaux IndexedDB, avec fusion basée sur `updatedAt`.
 - [fait] Modifier le bouton Sync pour faire push + pull : pousse d'abord les données locales, puis tire les données distantes en l'absence de conflits.
 - [fait] Ajouter un événement custom `synced` sur `window` pour recharger automatiquement le tableau de bord après un pull réussi.
+- [fait] Corriger l'affichage des points distants pour le superviseur : `PointsList` tombait en fallback 'Aucune session' car il ne lisait que les stores locaux ; ajout d'un fallback vers `remote_sessions`/`remote_points` avec `getRemoteSessionById`/`getRemotePointsBySession`. Les points distants sont affichés en lecture seule (pas de navigation vers le compteur, pas d'export).
