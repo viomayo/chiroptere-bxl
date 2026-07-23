@@ -103,3 +103,4 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 - [fait] Ajouter `pullMySessions()` dans `sync.ts` : rapatrie les sessions, points et observations de l'utilisateur depuis Supabase vers les stores locaux IndexedDB, avec fusion basée sur `updatedAt`.
 - [fait] Modifier le bouton Sync pour faire push + pull : pousse d'abord les données locales, puis tire les données distantes en l'absence de conflits.
 - [fait] Ajouter un événement custom `synced` sur `window` pour recharger automatiquement le tableau de bord après un pull réussi.
+- [fait] Corriger l'affichage des points distants pour le superviseur : `PointsList` tombait en fallback 'Aucune session' car il ne lisait que les stores locaux ; ajout d'un fallback vers `remote_sessions`/`remote_points` avec `getRemoteSessionById`/`getRemotePointsBySession`. Les points distants sont affichés en lecture seule (pas de navigation vers le compteur, pas d'export).
