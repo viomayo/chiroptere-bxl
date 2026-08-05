@@ -103,6 +103,19 @@ export function defaultCounts(): PointCounts {
 
 let _db: Promise<IDBDatabase> | null = null
 
+export async function resetDatabaseForTests(): Promise<void> {
+  if (process.env.NODE_ENV !== 'test') throw new Error('Disponible uniquement dans les tests')
+  const current = await _db?.catch(() => null)
+  current?.close()
+  _db = null
+  await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.deleteDatabase(DB_NAME)
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+    request.onblocked = () => reject(new Error('Suppression IndexedDB bloquée'))
+  })
+}
+
 function openDB(): Promise<IDBDatabase> {
   if (!_db) {
     _db = new Promise((resolve, reject) => {
