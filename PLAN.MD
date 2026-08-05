@@ -16,6 +16,7 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 - [fait] Vérifier le comportement mobile, notamment la synthèse vocale sur iOS Safari.
 - [fait] Adapter la taille des pastilles de tranches et bulles du timer en responsive (6 px mobile / 12 px desktop) pour tenir sur une ligne avec 18 tranches.
 - [fait] Réduire le bouton MAX (text-[10px], px-1.5) pour qu'il prenne moins de place que +/−.
+- [fait] Placer le bouton MAX sous les boutons −/+ sur mobile (aligné à droite sur desktop) pour éviter de viser + en voulant appuyer sur MAX.
 - [fait] Abréger les noms d'espèces dans l'interface (SPECIES_LABELS) et fusionner les espèces au même libellé court dans le résumé.
 - [fait] Remplacer les acronymes d'espèces par les noms français complets dans l'interface.
 - [fait] Séparer la localisation du point (description prédéfinie) des remarques libres de l'observateur : nouveau champ `localisation` dans `PointData`, affiché en lecture seule au-dessus du champ Remarques dans le compteur, et dans l'export CSV.
