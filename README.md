@@ -65,7 +65,7 @@ La CI exécute qualité, couverture, build, audit, Playwright et tests Supabase 
 
 ## Base de données et déploiement
 
-Le schéma versionné se trouve dans `supabase/migrations/`. La migration ajoute notamment :
+Le schéma versionné se trouve dans `supabase/migrations/`. Les migrations ajoutent notamment :
 
 - RLS complète, y compris la suppression propriétaire des sessions ;
 - table `supervisors` inaccessible directement aux clients ;
@@ -74,7 +74,7 @@ Le schéma versionné se trouve dans `supabase/migrations/`. La migration ajoute
 - RPC transactionnelle `sync_session_snapshot()` ;
 - contraintes uniques et seed espèces idempotent.
 
-La migration n'est pas appliquée automatiquement au projet distant. Après sauvegarde de la base, la valider localement puis la pousser manuellement :
+Les migrations ont été appliquées manuellement au projet distant le 5 août 2026 après sauvegarde logique, dry-run et validation CI. Pour une prochaine migration :
 
 ```bash
 supabase start
@@ -85,7 +85,7 @@ supabase db push --dry-run
 supabase db push
 ```
 
-Ne pas exécuter les deux dernières commandes sans validation explicite du propriétaire du projet.
+Ne pas exécuter les deux dernières commandes sans sauvegarde vérifiée et validation explicite du propriétaire du projet.
 
 ## Sécurité et offline
 

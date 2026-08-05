@@ -16,11 +16,12 @@
 - [fait] Tests unitaires/intégration, scénarios Playwright et CI.
 - [fait] Mise à jour vers Next.js 16.3 et audit production sans vulnérabilité connue.
 
-## Déploiement restant
+## Déploiement
 
-- [à faire] Sauvegarder la base Supabase distante.
-- [à faire] Valider la migration localement avec la CLI Supabase et Docker.
-- [à faire] Examiner `supabase db push --dry-run`, puis appliquer manuellement la migration avec l'autorisation du propriétaire.
+- [fait] Sauvegarde logique distante du schéma, des données et des rôles, vérifiée par SHA-256.
+- [fait] Validation des migrations sur Supabase local dans la CI.
+- [fait] Dry-run examiné puis migrations appliquées manuellement au Supabase distant.
+- [fait] Vérification distante des RPC, RLS, privilèges, advisors et de l'historique des migrations.
 - [à faire] Exécuter une recette réelle sur iOS Safari et Android installés en PWA.
 
 ## Évolutions produit possibles
