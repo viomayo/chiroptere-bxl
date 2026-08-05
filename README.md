@@ -6,14 +6,14 @@ Application PWA mobile-first pour les relevés de chauves-souris à Bruxelles. E
 
 - Authentification Google avec Supabase Auth et routes protégées par le Proxy Next.js 16.
 - Création de sessions et 319 points prédéfinis avec coordonnées et description.
-- Compteur chronométré par tranches, groupes et espèces, avec pause, reprise, MAX, annulation et révision.
+- Compteur chronométré par tranches, groupes et espèces, avec pause, reprise, MAX (placé sous les boutons −/+ sur mobile pour éviter les clics accidentels), annulation et révision.
 - Sauvegarde automatique des brouillons dans IndexedDB.
 - Données locales isolées par compte. Les anciennes données sans propriétaire restent en quarantaine jusqu'à attribution explicite ou export JSON.
 - Synchronisation par snapshot atomique : session, points et observations sont écrits dans une transaction Supabase.
 - Révision distante agrégée, conflits sur le snapshot complet et choix explicite entre version locale ou distante.
 - Suppressions hors ligne conservées sous forme de tombstones jusqu'à confirmation Supabase.
 - Vue superviseur avec cache local séparé par compte superviseur.
-- Exports CSV et JSON. L'export GeoJSON n'est pas implémenté.
+- Exports CSV et JSON (avec `user_id`/`user_name`), y compris pour les sessions distantes (vue superviseur). L'export GeoJSON n'est pas implémenté.
 - PWA installable, caches HTML/RSC séparés et page de diagnostic `/sw-status`.
 
 ## Routes
