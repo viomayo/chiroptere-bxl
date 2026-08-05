@@ -1,12 +1,15 @@
 const DB_NAME = 'chiroptere-bxl'
-const DB_VERSION = 4
+const DB_VERSION = 5
 const STORE_SESSIONS = 'sessions'
 const STORE_POINTS = 'points'
 const STORE_REMOTE_SESSIONS = 'remote_sessions'
 const STORE_REMOTE_POINTS = 'remote_points'
+const STORE_TOMBSTONES = 'tombstones'
+export const LEGACY_OWNER_ID = '__legacy__'
 
 export interface SessionData {
   id: string
+  ownerId: string
   typeSite: string
   nomSite: string
   acronyme: string
@@ -20,16 +23,21 @@ export interface SessionData {
   createdAt: string
   updatedAt: string
   syncedAt: string | null
+  dirty: boolean
+  lastSyncedRemoteRevision: number | null
+  syncError: string | null
 }
 
 export interface RemoteSessionData extends SessionData {
   userId: string
   userName: string | null
+  cachedBy: string
 }
 
 export interface RemotePointData extends PointData {
   userId: string
   userName: string | null
+  cachedBy: string
 }
 
 export interface SpeciesCount {
@@ -64,6 +72,7 @@ export interface PointTimerState {
 
 export interface PointData {
   id: string
+  ownerId: string
   sessionId: string
   numero: number
   heureDebut: string | null
@@ -79,6 +88,14 @@ export interface PointData {
   updatedAt: string
 }
 
+export interface SessionTombstone {
+  id: string
+  sessionId: string
+  ownerId: string
+  deletedAt: string
+  lastError: string | null
+}
+
 export function defaultCounts(): PointCounts {
   const empty = (): GroupCount => ({ total: 0, trancheHistory: [], species: [] })
   return { pipistrelles: empty(), murins: empty(), serotules: empty(), autres: empty() }
@@ -92,6 +109,7 @@ function openDB(): Promise<IDBDatabase> {
       const req = indexedDB.open(DB_NAME, DB_VERSION)
       req.onupgradeneeded = (e) => {
         const db = (e.target as IDBOpenDBRequest).result
+        const tx = (e.target as IDBOpenDBRequest).transaction!
         if (!db.objectStoreNames.contains(STORE_SESSIONS)) {
           db.createObjectStore(STORE_SESSIONS, { keyPath: 'id' })
         }
@@ -107,6 +125,26 @@ function openDB(): Promise<IDBDatabase> {
           const rp = db.createObjectStore(STORE_REMOTE_POINTS, { keyPath: 'id' })
           rp.createIndex('sessionId', 'sessionId', { unique: false })
           rp.createIndex('userId', 'userId', { unique: false })
+        }
+        if (!db.objectStoreNames.contains(STORE_TOMBSTONES)) {
+          const tombstones = db.createObjectStore(STORE_TOMBSTONES, { keyPath: 'id' })
+          tombstones.createIndex('ownerId', 'ownerId', { unique: false })
+        }
+
+        for (const storeName of [STORE_SESSIONS, STORE_POINTS]) {
+          const store = tx.objectStore(storeName)
+          if (!store.indexNames.contains('ownerId')) store.createIndex('ownerId', 'ownerId', { unique: false })
+          const cursor = store.openCursor()
+          cursor.onsuccess = () => {
+            const current = cursor.result
+            if (!current) return
+            if (!current.value.ownerId) current.update({ ...current.value, ownerId: LEGACY_OWNER_ID })
+            current.continue()
+          }
+        }
+        for (const storeName of [STORE_REMOTE_SESSIONS, STORE_REMOTE_POINTS]) {
+          const store = tx.objectStore(storeName)
+          if (!store.indexNames.contains('cachedBy')) store.createIndex('cachedBy', 'cachedBy', { unique: false })
         }
       }
       req.onsuccess = (e) => resolve((e.target as IDBOpenDBRequest).result)
@@ -147,6 +185,7 @@ function hydratePoint(raw: Record<string, unknown>): PointData {
   } : defaultCounts()
   return {
     id: raw.id as string,
+    ownerId: (raw.ownerId as string) || LEGACY_OWNER_ID,
     sessionId: raw.sessionId as string,
     numero: raw.numero as number,
     heureDebut: (raw.heureDebut as string | null) ?? null,
@@ -163,14 +202,37 @@ function hydratePoint(raw: Record<string, unknown>): PointData {
   }
 }
 
-export async function deleteSession(sessionId: string): Promise<void> {
+function hydrateSession(raw: Record<string, unknown>): SessionData {
+  if (!raw.id || !raw.typeSite || !raw.nomSite) throw new Error('Session IndexedDB invalide')
+  return {
+    ...(raw as unknown as SessionData),
+    ownerId: (raw.ownerId as string) || LEGACY_OWNER_ID,
+    dirty: typeof raw.dirty === 'boolean' ? raw.dirty : !raw.syncedAt,
+    lastSyncedRemoteRevision: typeof raw.lastSyncedRemoteRevision === 'number' ? raw.lastSyncedRemoteRevision : null,
+    syncError: typeof raw.syncError === 'string' ? raw.syncError : null,
+  }
+}
+
+export async function deleteSession(ownerId: string, sessionId: string, createTombstone = true): Promise<void> {
   const db = await openDB()
-  const points = await getPointsBySession(sessionId)
+  const session = await getSessionById(ownerId, sessionId)
+  if (!session) return
+  const points = await getPointsBySession(ownerId, sessionId)
   return new Promise((resolve, reject) => {
-    const tx = db.transaction([STORE_SESSIONS, STORE_POINTS], 'readwrite')
+    const tx = db.transaction([STORE_SESSIONS, STORE_POINTS, STORE_TOMBSTONES], 'readwrite')
     tx.objectStore(STORE_SESSIONS).delete(sessionId)
     for (const p of points) {
       tx.objectStore(STORE_POINTS).delete(p.id)
+    }
+    if (createTombstone && session.syncedAt) {
+      const tombstone: SessionTombstone = {
+        id: `${ownerId}:${sessionId}`,
+        sessionId,
+        ownerId,
+        deletedAt: new Date().toISOString(),
+        lastError: null,
+      }
+      tx.objectStore(STORE_TOMBSTONES).put(tombstone)
     }
     tx.oncomplete = () => resolve()
     tx.onerror = () => reject(tx.error)
@@ -178,6 +240,7 @@ export async function deleteSession(sessionId: string): Promise<void> {
 }
 
 export async function saveSession(session: SessionData): Promise<void> {
+  if (!session.ownerId || session.ownerId === LEGACY_OWNER_ID) throw new Error('Propriétaire de session invalide')
   const db = await openDB()
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_SESSIONS, 'readwrite')
@@ -188,6 +251,7 @@ export async function saveSession(session: SessionData): Promise<void> {
 }
 
 export async function saveSessionWithPoints(session: SessionData, points: PointData[]): Promise<void> {
+  if (points.some((point) => point.ownerId !== session.ownerId)) throw new Error('Propriétaire incohérent')
   const db = await openDB()
   return new Promise((resolve, reject) => {
     const tx = db.transaction([STORE_SESSIONS, STORE_POINTS], 'readwrite')
@@ -198,33 +262,53 @@ export async function saveSessionWithPoints(session: SessionData, points: PointD
   })
 }
 
-export async function getSessions(): Promise<SessionData[]> {
+export async function replaceSessionWithPoints(session: SessionData, points: PointData[]): Promise<void> {
+  if (points.some((point) => point.ownerId !== session.ownerId)) throw new Error('Propriétaire incohérent')
+  const db = await openDB()
+  const existing = await getPointsBySession(session.ownerId, session.id)
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([STORE_SESSIONS, STORE_POINTS], 'readwrite')
+    tx.objectStore(STORE_SESSIONS).put(session)
+    existing.forEach((point) => tx.objectStore(STORE_POINTS).delete(point.id))
+    points.forEach((point) => tx.objectStore(STORE_POINTS).put(point))
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+export async function getSessions(ownerId: string): Promise<SessionData[]> {
   const db = await openDB()
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_SESSIONS, 'readonly')
-    const req = tx.objectStore(STORE_SESSIONS).getAll()
-    req.onsuccess = () => resolve(req.result as SessionData[])
+    const req = tx.objectStore(STORE_SESSIONS).index('ownerId').getAll(ownerId)
+    req.onsuccess = () => {
+      try { resolve((req.result as Record<string, unknown>[]).map(hydrateSession)) } catch (error) { reject(error) }
+    }
     req.onerror = () => reject(req.error)
   })
 }
 
-export async function getSessionById(id: string): Promise<SessionData | undefined> {
+export async function getSessionById(ownerId: string, id: string): Promise<SessionData | undefined> {
   const db = await openDB()
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_SESSIONS, 'readonly')
     const req = tx.objectStore(STORE_SESSIONS).get(id)
-    req.onsuccess = () => resolve(req.result as SessionData | undefined)
+    req.onsuccess = () => {
+      const raw = req.result as Record<string, unknown> | undefined
+      resolve(raw && raw.ownerId === ownerId ? hydrateSession(raw) : undefined)
+    }
     req.onerror = () => reject(req.error)
   })
 }
 
-export async function getPointsBySession(sessionId: string): Promise<PointData[]> {
+export async function getPointsBySession(ownerId: string, sessionId: string): Promise<PointData[]> {
   const db = await openDB()
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_POINTS, 'readonly')
     const req = tx.objectStore(STORE_POINTS).index('sessionId').getAll(sessionId)
     req.onsuccess = () => {
       const points = (req.result as Record<string, unknown>[])
+        .filter((point) => point.ownerId === ownerId)
         .map(hydratePoint)
         .sort((a, b) => a.numero - b.numero)
       resolve(points)
@@ -233,26 +317,27 @@ export async function getPointsBySession(sessionId: string): Promise<PointData[]
   })
 }
 
-export async function getPointById(id: string): Promise<PointData | undefined> {
+export async function getPointById(ownerId: string, id: string): Promise<PointData | undefined> {
   const db = await openDB()
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_POINTS, 'readonly')
     const req = tx.objectStore(STORE_POINTS).get(id)
     req.onsuccess = () => {
       const raw = req.result as Record<string, unknown> | undefined
-      resolve(raw ? hydratePoint(raw) : undefined)
+      resolve(raw && raw.ownerId === ownerId ? hydratePoint(raw) : undefined)
     }
     req.onerror = () => reject(req.error)
   })
 }
 
 export async function initSessionPoints(session: SessionData): Promise<PointData[]> {
-  const existing = await getPointsBySession(session.id)
+  const existing = await getPointsBySession(session.ownerId, session.id)
   if (existing.length > 0) return existing
 
   const now = new Date().toISOString()
   const points: PointData[] = Array.from({ length: session.nbPointsEcoute }, (_, i) => ({
     id: `${session.id}-pt-${i + 1}`,
+    ownerId: session.ownerId,
     sessionId: session.id,
     numero: i + 1,
     heureDebut: null,
@@ -279,11 +364,11 @@ export async function initSessionPoints(session: SessionData): Promise<PointData
   return points
 }
 
-export async function getAllPoints(): Promise<PointData[]> {
+export async function getAllPoints(ownerId: string): Promise<PointData[]> {
   const db = await openDB()
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_POINTS, 'readonly')
-    const req = tx.objectStore(STORE_POINTS).getAll()
+    const req = tx.objectStore(STORE_POINTS).index('ownerId').getAll(ownerId)
     req.onsuccess = () => {
       const points = (req.result as Record<string, unknown>[]).map(hydratePoint)
       resolve(points)
@@ -292,11 +377,75 @@ export async function getAllPoints(): Promise<PointData[]> {
   })
 }
 
-export async function updatePoint(point: PointData): Promise<void> {
+export async function updatePoint(ownerId: string, point: PointData): Promise<void> {
+  if (point.ownerId !== ownerId) throw new Error('Propriétaire de point incohérent')
   const db = await openDB()
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_POINTS, 'readwrite')
+    const tx = db.transaction([STORE_POINTS, STORE_SESSIONS], 'readwrite')
     tx.objectStore(STORE_POINTS).put(point)
+    const sessionRequest = tx.objectStore(STORE_SESSIONS).get(point.sessionId)
+    sessionRequest.onsuccess = () => {
+      const session = sessionRequest.result as SessionData | undefined
+      if (session?.ownerId === ownerId) {
+        tx.objectStore(STORE_SESSIONS).put({
+          ...session,
+          dirty: true,
+          updatedAt: point.updatedAt,
+          syncError: null,
+        })
+      }
+    }
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+export async function getLegacySessions(): Promise<SessionData[]> {
+  return getSessions(LEGACY_OWNER_ID)
+}
+
+export async function claimLegacyData(ownerId: string): Promise<void> {
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([STORE_SESSIONS, STORE_POINTS], 'readwrite')
+    for (const storeName of [STORE_SESSIONS, STORE_POINTS]) {
+      const request = tx.objectStore(storeName).index('ownerId').openCursor(LEGACY_OWNER_ID)
+      request.onsuccess = () => {
+        const cursor = request.result
+        if (!cursor) return
+        cursor.update({ ...cursor.value, ownerId, dirty: storeName === STORE_SESSIONS ? true : cursor.value.dirty })
+        cursor.continue()
+      }
+    }
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+export async function getTombstones(ownerId: string): Promise<SessionTombstone[]> {
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(STORE_TOMBSTONES).objectStore(STORE_TOMBSTONES).index('ownerId').getAll(ownerId)
+    req.onsuccess = () => resolve(req.result as SessionTombstone[])
+    req.onerror = () => reject(req.error)
+  })
+}
+
+export async function saveTombstone(tombstone: SessionTombstone): Promise<void> {
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_TOMBSTONES, 'readwrite')
+    tx.objectStore(STORE_TOMBSTONES).put(tombstone)
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+export async function removeTombstone(ownerId: string, sessionId: string): Promise<void> {
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_TOMBSTONES, 'readwrite')
+    tx.objectStore(STORE_TOMBSTONES).delete(`${ownerId}:${sessionId}`)
     tx.oncomplete = () => resolve()
     tx.onerror = () => reject(tx.error)
   })
@@ -324,44 +473,49 @@ export async function saveRemotePoint(point: RemotePointData): Promise<void> {
   })
 }
 
-export async function getRemoteSessionById(id: string): Promise<RemoteSessionData | undefined> {
+export async function getRemoteSessionById(cachedBy: string, id: string): Promise<RemoteSessionData | undefined> {
   const db = await openDB()
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_REMOTE_SESSIONS, 'readonly')
     const req = tx.objectStore(STORE_REMOTE_SESSIONS).get(id)
-    req.onsuccess = () => resolve(req.result as RemoteSessionData | undefined)
+    req.onsuccess = () => {
+      const result = req.result as RemoteSessionData | undefined
+      resolve(result?.cachedBy === cachedBy ? result : undefined)
+    }
     req.onerror = () => reject(req.error)
   })
 }
 
-export async function getRemoteSessions(): Promise<RemoteSessionData[]> {
+export async function getRemoteSessions(cachedBy: string): Promise<RemoteSessionData[]> {
   const db = await openDB()
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_REMOTE_SESSIONS, 'readonly')
-    const req = tx.objectStore(STORE_REMOTE_SESSIONS).getAll()
+    const req = tx.objectStore(STORE_REMOTE_SESSIONS).index('cachedBy').getAll(cachedBy)
     req.onsuccess = () => resolve(req.result as RemoteSessionData[])
     req.onerror = () => reject(req.error)
   })
 }
 
-export async function getRemotePointsBySession(sessionId: string): Promise<RemotePointData[]> {
+export async function getRemotePointsBySession(cachedBy: string, sessionId: string): Promise<RemotePointData[]> {
   const db = await openDB()
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_REMOTE_POINTS, 'readonly')
     const req = tx.objectStore(STORE_REMOTE_POINTS).index('sessionId').getAll(sessionId)
     req.onsuccess = () => {
-      const points = (req.result as RemotePointData[]).sort((a, b) => a.numero - b.numero)
+      const points = (req.result as RemotePointData[])
+        .filter((point) => point.cachedBy === cachedBy)
+        .sort((a, b) => a.numero - b.numero)
       resolve(points)
     }
     req.onerror = () => reject(req.error)
   })
 }
 
-export async function getAllRemotePoints(): Promise<RemotePointData[]> {
+export async function getAllRemotePoints(cachedBy: string): Promise<RemotePointData[]> {
   const db = await openDB()
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_REMOTE_POINTS, 'readonly')
-    const req = tx.objectStore(STORE_REMOTE_POINTS).getAll()
+    const req = tx.objectStore(STORE_REMOTE_POINTS).index('cachedBy').getAll(cachedBy)
     req.onsuccess = () => {
       const points = (req.result as RemotePointData[]).sort((a, b) => a.numero - b.numero)
       resolve(points)
@@ -370,12 +524,13 @@ export async function getAllRemotePoints(): Promise<RemotePointData[]> {
   })
 }
 
-export async function clearRemoteData(): Promise<void> {
+export async function clearRemoteData(cachedBy: string): Promise<void> {
   const db = await openDB()
+  const [sessions, points] = await Promise.all([getRemoteSessions(cachedBy), getAllRemotePoints(cachedBy)])
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction([STORE_REMOTE_SESSIONS, STORE_REMOTE_POINTS], 'readwrite')
-    tx.objectStore(STORE_REMOTE_SESSIONS).clear()
-    tx.objectStore(STORE_REMOTE_POINTS).clear()
+    sessions.forEach((session) => tx.objectStore(STORE_REMOTE_SESSIONS).delete(session.id))
+    points.forEach((point) => tx.objectStore(STORE_REMOTE_POINTS).delete(point.id))
     tx.oncomplete = () => resolve()
     tx.onerror = () => reject(tx.error)
   })

@@ -23,6 +23,10 @@ export default function SyncButton({ userId }: { userId: string | null }) {
       } else {
         const pull = await pullMySessions(userId)
         setLastPull(pull)
+        if (pull.conflicts.length > 0) {
+          setLastResult({ ...result, conflicts: pull.conflicts })
+          setShowConflicts(true)
+        }
         window.dispatchEvent(new CustomEvent('synced', { detail: pull }))
       }
       setStatus(result.errors > 0 ? 'error' : 'idle')

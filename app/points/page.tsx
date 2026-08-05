@@ -18,7 +18,7 @@ export default async function PointsPage() {
             <p className="text-sm text-foreground/30">Chargement...</p>
           </div>
         }>
-          <PointsList />
+          {userId && <PointsList ownerId={userId} />}
         </Suspense>
       </main>
     </AppShell>

@@ -407,7 +407,7 @@ function GroupCard({
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 
-export default function CompteurScreen() {
+export default function CompteurScreen({ ownerId }: { ownerId: string }) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pointId = searchParams.get('pointId')
@@ -503,10 +503,10 @@ export default function CompteurScreen() {
     let active = true
     async function load() {
       if (!pointId) { setLoadError('Aucun point sélectionné.'); setLoading(false); return }
-      const pt = await getPointById(pointId)
+      const pt = await getPointById(ownerId, pointId)
       if (!active) return
       if (!pt) { setLoadError('Point introuvable.'); setLoading(false); return }
-      const sess = await getSessionById(pt.sessionId)
+      const sess = await getSessionById(ownerId, pt.sessionId)
       if (!active) return
       if (!sess) { setLoadError('Session introuvable.'); setLoading(false); return }
       const cfg = getSiteConfig(sess.typeSite)
@@ -545,7 +545,7 @@ export default function CompteurScreen() {
     }
     load()
     return () => { active = false }
-  }, [pointId])
+  }, [pointId, ownerId])
 
   useEffect(() => { configRef.current = config }, [config])
 
@@ -577,7 +577,7 @@ export default function CompteurScreen() {
     }
 
     const save = window.setTimeout(() => {
-      void updatePoint(draft)
+      void updatePoint(ownerId, draft)
     }, 500)
 
     return () => window.clearTimeout(save)
@@ -594,6 +594,7 @@ export default function CompteurScreen() {
     trancheElapsed,
     pointStartTime,
     trancheStartTime,
+    ownerId,
   ])
 
   function startInterval() {
@@ -666,7 +667,7 @@ export default function CompteurScreen() {
         updatedAt: now.toISOString(),
       },
     }
-    await updatePoint(updated)
+    await updatePoint(ownerId, updated)
     setPoint(updated)
 
     setStarted(true)
@@ -707,7 +708,7 @@ export default function CompteurScreen() {
         timerState: null,
         updatedAt: new Date().toISOString(),
       }
-      await updatePoint(updated)
+      await updatePoint(ownerId, updated)
       setPoint(updated)
       setCounts(emptyCounts)
       setCommentaire('')
@@ -889,8 +890,8 @@ export default function CompteurScreen() {
         trancheStartTime,
       }),
     }
-    await updatePoint(updated)
-    const allPoints = await getPointsBySession(point.sessionId)
+    await updatePoint(ownerId, updated)
+    const allPoints = await getPointsBySession(ownerId, point.sessionId)
     const next = allPoints.find((p) => p.numero === point.numero + 1)
     router.push(next ? `/compteur?pointId=${next.id}` : '/points')
   }

@@ -61,7 +61,7 @@ function nowLocal(): string {
 const inputClass =
   'w-full rounded-lg border border-foreground/10 bg-background px-3 py-2.5 text-base text-foreground focus:outline-none focus:ring-1 focus:ring-foreground/30'
 
-export default function SiteForm({ compteurPrincipal }: { compteurPrincipal: string }) {
+export default function SiteForm({ compteurPrincipal, ownerId }: { compteurPrincipal: string; ownerId: string }) {
   const router = useRouter()
   const [typeSite, setTypeSite] = useState('')
   const [nomSite, setNomSite] = useState('')
@@ -106,6 +106,7 @@ export default function SiteForm({ compteurPrincipal }: { compteurPrincipal: str
 
     const session: SessionData = {
       id: sessionId,
+      ownerId,
       typeSite,
       nomSite,
       acronyme,
@@ -119,6 +120,9 @@ export default function SiteForm({ compteurPrincipal }: { compteurPrincipal: str
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       syncedAt: null,
+      dirty: true,
+      lastSyncedRemoteRevision: null,
+      syncError: null,
     }
 
     try {
@@ -127,6 +131,7 @@ export default function SiteForm({ compteurPrincipal }: { compteurPrincipal: str
         const now = new Date().toISOString()
         const points: PointData[] = predefined.slice(0, nbPoints).map((p, i) => ({
           id: `${sessionId}-pt-${i + 1}`,
+          ownerId,
           sessionId,
           numero: p.numero,
           heureDebut: null,

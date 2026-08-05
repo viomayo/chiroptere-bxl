@@ -19,7 +19,7 @@ export default async function CompteurPage() {
             </div>
           }
         >
-          <CompteurScreen />
+          {userId && <CompteurScreen ownerId={userId} />}
         </Suspense>
       </main>
     </AppShell>

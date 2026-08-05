@@ -169,7 +169,7 @@ function exportJSON(session: SessionData, points: PointData[]) {
   )
 }
 
-export default function PointsList() {
+export default function PointsList({ ownerId }: { ownerId: string }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('sessionId')
@@ -184,16 +184,16 @@ export default function PointsList() {
       let target: SessionData | undefined
       let remote = false
       if (sessionId) {
-        target = await getSessionById(sessionId)
+        target = await getSessionById(ownerId, sessionId)
         if (!target) {
-          const remoteTarget = await getRemoteSessionById(sessionId)
+          const remoteTarget = await getRemoteSessionById(ownerId, sessionId)
           if (remoteTarget) {
             target = remoteTarget
             remote = true
           }
         }
       } else {
-        const sessions = await getSessions()
+        const sessions = await getSessions(ownerId)
         target = sessions.sort(
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         )[0]
@@ -205,7 +205,7 @@ export default function PointsList() {
       }
       let pts: PointData[]
       if (remote) {
-        pts = await getRemotePointsBySession(target.id)
+        pts = await getRemotePointsBySession(ownerId, target.id)
       } else {
         pts = target.nbPointsEcoute > 0 ? await initSessionPoints(target) : []
       }
@@ -217,7 +217,7 @@ export default function PointsList() {
     }
     load()
     return () => { active = false }
-  }, [sessionId])
+  }, [sessionId, ownerId])
 
   if (loading) {
     return (

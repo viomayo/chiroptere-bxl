@@ -9,13 +9,16 @@ import {
   getRemoteSessions,
   getAllRemotePoints,
   deleteSession,
+  getLegacySessions,
+  claimLegacyData,
+  LEGACY_OWNER_ID,
   type SessionData,
   type PointData,
   type PointCounts,
   type RemoteSessionData,
   type RemotePointData,
 } from '@/lib/idb'
-import { getStoredConflicts, pullAllSessionsForSupervisor, deleteSessionFromSupabase, type SyncConflict } from '@/lib/supabase/sync'
+import { getStoredConflicts, pullAllSessionsForSupervisor, SYNC_STATE_EVENT, type SyncConflict } from '@/lib/supabase/sync'
 import { MapPin, Radio, Plus, ArrowRight, ChevronRight, AlertTriangle, Download, Users, Trash2 } from 'lucide-react'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -101,28 +104,50 @@ export default function Dashboard({ name, userId, isSupervisor }: { name: string
   const [pulling, setPulling] = useState(false)
   const [pullError, setPullError] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [legacyCount, setLegacyCount] = useState(0)
+
+  async function handleExportLegacy() {
+    const [legacySessions, legacyPoints] = await Promise.all([getLegacySessions(), getAllPoints(LEGACY_OWNER_ID)])
+    const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), sessions: legacySessions, points: legacyPoints }, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = 'chiro-bxl-donnees-locales-en-quarantaine.json'
+    anchor.click()
+    URL.revokeObjectURL(url)
+  }
 
   async function handleDelete(sessionId: string, e: React.MouseEvent) {
     e.stopPropagation()
     if (!window.confirm('Supprimer cette session et tous ses points ?')) return
     setDeletingId(sessionId)
-    await deleteSession(sessionId)
-    if (userId) await deleteSessionFromSupabase(sessionId)
+    if (!userId) return
+    await deleteSession(userId, sessionId)
     setSessions((prev) => prev.filter((s) => s.id !== sessionId))
     setDeletingId(null)
   }
 
   const loadData = useCallback(async () => {
-    const [s, p, rs, rp] = await Promise.all([getSessions(), getAllPoints(), getRemoteSessions(), getAllRemotePoints()])
+    if (!userId) return
+    const [s, p, rs, rp] = await Promise.all([getSessions(userId), getAllPoints(userId), getRemoteSessions(userId), getAllRemotePoints(userId)])
     setSessions(s)
     setAllPoints(p)
     setRemoteSessions(rs.filter((r) => r.userId !== userId))
     setRemotePoints(rp)
   }, [userId])
 
+  async function handleClaimLegacy() {
+    if (!userId || !window.confirm('Attribuer les anciennes données locales à ce compte ? Cette action est irréversible.')) return
+    await claimLegacyData(userId)
+    setLegacyCount(0)
+    await loadData()
+  }
+
   useEffect(() => {
     let active = true
-    Promise.all([getSessions(), getAllPoints(), getRemoteSessions(), getAllRemotePoints()]).then(([s, p, rs, rp]) => {
+    if (!userId) return
+    getLegacySessions().then((legacy) => setLegacyCount(legacy.length))
+    Promise.all([getSessions(userId), getAllPoints(userId), getRemoteSessions(userId), getAllRemotePoints(userId)]).then(([s, p, rs, rp]) => {
       if (!active) return
       setSessions(s)
       setAllPoints(p)
@@ -136,10 +161,9 @@ export default function Dashboard({ name, userId, isSupervisor }: { name: string
   }, [userId, loadData])
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setConflicts(getStoredConflicts())
-    }, 2000)
-    return () => clearInterval(interval)
+    const refreshConflicts = () => setConflicts(getStoredConflicts())
+    window.addEventListener(SYNC_STATE_EVENT, refreshConflicts)
+    return () => window.removeEventListener(SYNC_STATE_EVENT, refreshConflicts)
   }, [])
 
   const handlePullRemote = useCallback(async () => {
@@ -147,8 +171,8 @@ export default function Dashboard({ name, userId, isSupervisor }: { name: string
     setPulling(true)
     setPullError(false)
     try {
-      await pullAllSessionsForSupervisor()
-      const [s, p, rs, rp] = await Promise.all([getSessions(), getAllPoints(), getRemoteSessions(), getAllRemotePoints()])
+      await pullAllSessionsForSupervisor(userId)
+      const [s, p, rs, rp] = await Promise.all([getSessions(userId), getAllPoints(userId), getRemoteSessions(userId), getAllRemotePoints(userId)])
       setSessions(s)
       setAllPoints(p)
       setRemoteSessions(rs.filter((r) => r.userId !== userId))
@@ -224,6 +248,18 @@ export default function Dashboard({ name, userId, isSupervisor }: { name: string
           <p className="text-xs text-foreground/70 flex-1">
             {conflicts.length} session{conflicts.length > 1 ? 's' : ''} en conflit — utilisez le bouton <strong>Sync</strong> dans l&apos;en-tête pour résoudre.
           </p>
+        </div>
+      )}
+
+      {legacyCount > 0 && (
+        <div className="rounded-xl border border-[#b87840]/20 bg-[#b87840]/6 px-4 py-3 flex flex-col gap-2">
+          <p className="text-xs text-foreground/70">
+            {legacyCount} ancienne{legacyCount > 1 ? 's' : ''} session{legacyCount > 1 ? 's' : ''} locale{legacyCount > 1 ? 's' : ''} en quarantaine.
+          </p>
+          <div className="flex gap-2">
+            <button type="button" onClick={handleClaimLegacy} className="text-xs underline">Attribuer à mon compte</button>
+            <button type="button" onClick={handleExportLegacy} className="text-xs underline">Exporter en JSON</button>
+          </div>
         </div>
       )}
 
