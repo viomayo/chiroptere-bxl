@@ -17,11 +17,13 @@ export default function SyncButton({ userId }: { userId: string | null }) {
     setStatus('syncing')
     try {
       const result = await syncAll(userId)
+      let pullErrors = 0
       setLastResult(result)
       if (result.conflicts.length > 0) {
         setShowConflicts(true)
       } else {
         const pull = await pullMySessions(userId)
+        pullErrors = pull.errors
         setLastPull(pull)
         if (pull.conflicts.length > 0) {
           setLastResult({ ...result, conflicts: pull.conflicts })
@@ -29,7 +31,7 @@ export default function SyncButton({ userId }: { userId: string | null }) {
         }
         window.dispatchEvent(new CustomEvent('synced', { detail: pull }))
       }
-      setStatus(result.errors > 0 ? 'error' : 'idle')
+      setStatus(result.errors + pullErrors > 0 ? 'error' : 'idle')
     } catch {
       setStatus('error')
     }

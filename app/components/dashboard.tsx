@@ -124,6 +124,7 @@ export default function Dashboard({ name, userId, isSupervisor }: { name: string
     if (!userId) return
     await deleteSession(userId, sessionId)
     setSessions((prev) => prev.filter((s) => s.id !== sessionId))
+    setAllPoints((prev) => prev.filter((point) => point.sessionId !== sessionId))
     setDeletingId(null)
   }
 
@@ -402,14 +403,14 @@ export default function Dashboard({ name, userId, isSupervisor }: { name: string
                     className={`w-1.5 h-1.5 rounded-full ${
                       conflictIds.has(session.id)
                         ? 'bg-[#b87840]'
-                        : session.syncedAt
+                        : session.syncedAt && !session.dirty
                           ? 'bg-[#4d8c5c]'
                           : 'bg-foreground/12'
                     }`}
                     title={
                       conflictIds.has(session.id)
                         ? 'Conflit'
-                        : session.syncedAt
+                        : session.syncedAt && !session.dirty
                           ? 'Synchronisé'
                           : 'Non synchronisé'
                     }
