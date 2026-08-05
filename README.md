@@ -1,94 +1,96 @@
 # Chiroptère BXL
 
-Application web mobile-first pour accompagner les relevés de chauves-souris sur le terrain à Bruxelles.
+Application PWA mobile-first pour les relevés de chauves-souris à Bruxelles. Elle fonctionne localement sur le terrain, puis synchronise les sessions avec Supabase.
 
-## État actuel
+## Fonctions disponibles
 
-L'application est aujourd'hui un prototype local-first fonctionnel :
+- Authentification Google avec Supabase Auth et routes protégées par le Proxy Next.js 16.
+- Création de sessions et 319 points prédéfinis avec coordonnées et description.
+- Compteur chronométré par tranches, groupes et espèces, avec pause, reprise, MAX, annulation et révision.
+- Sauvegarde automatique des brouillons dans IndexedDB.
+- Données locales isolées par compte. Les anciennes données sans propriétaire restent en quarantaine jusqu'à attribution explicite ou export JSON.
+- Synchronisation par snapshot atomique : session, points et observations sont écrits dans une transaction Supabase.
+- Révision distante agrégée, conflits sur le snapshot complet et choix explicite entre version locale ou distante.
+- Suppressions hors ligne conservées sous forme de tombstones jusqu'à confirmation Supabase.
+- Vue superviseur avec cache local séparé par compte superviseur.
+- Exports CSV et JSON. L'export GeoJSON n'est pas implémenté.
+- PWA installable, caches HTML/RSC séparés et page de diagnostic `/sw-status`.
 
-- l'accès est protégé par une connexion Google via Supabase Auth ;
-- les données de terrain sont enregistrées localement dans IndexedDB, dans le navigateur ;
-- un footer avec les crédits des développeurs et leurs liens GitHub est affiché sur toutes les pages ;
-- la création de sessions, les points d'écoute (avec coordonnées X/Y et descriptions de localisation prédéfinies), le compteur chronométré, la sauvegarde automatique des brouillons, la remise à zéro, le tableau de bord, les exports CSV/JSON (avec coordonnées) et les bases PWA sont en place ;
-- les groupes d'espèces (pipistrelles, sérotules, murins, autres) sont identifiés par des couleurs distinctes (violet, orange, vert, rose) et disposés en grille 2×2 dans le compteur ;
-- les pastilles de tranches sont cliquables : un clic sur une pastille vide ajoute directement un comptage dans cette tranche, sans passer par le bouton + ; l'espacement réduit au mobile (`gap-px`) permet d'afficher les 18 tranches des transects forestiers sur une seule ligne ;
-- chaque compteur (groupe et espèce) est indépendant : cliquer une pastille dans un groupe ou une espèce n'affecte pas les autres ;
-- le sélecteur d'espèces est intégré en ligne au compteur : cliquer le bouton + d'un groupe ou une pastille de tranche ouvre un choix d'espèces immédiat pour cette tranche, sans accordéon séparé ; un résumé des espèces comptées apparaît sous chaque groupe ;
-- le bouton MAX remplit toutes les tranches d'un groupe en un clic et active le mode « auto-picker » : le sélecteur d'espèces s'ouvre automatiquement à chaque nouvelle tranche pour noter les espèces présentes tranche par tranche ;
-- le bouton − retire la tranche courante (celle du timer) du groupe et des espèces associées ; un bouton « Annuler » (undo) permet de revenir sur la dernière action (+, -, MAX, ajout d'espèce) en restaurant l'état précédent ;
-- les pastilles de tranches déjà remplies sont cliquables : un clic ouvre le sélecteur d'espèces pour cette tranche ; un second clic (picker déjà ouvert) retire le contact du groupe et des espèces associées, permettant de corriger un clic accidentel ;
-- un mode « Révision » est disponible après la fin du point : il affiche une grille complète espèces × tranches avec des cases à cocher pour chaque combinaison ;
-- les noms d'espèces sont affichés en français complet (ex. Pipistrelle commune, Murin de Daubenton) ;
-- la localisation de chaque point (description prédéfinie issue des données CSV) est affichée en lecture seule dans le compteur, séparée du champ de remarques libres de l'observateur ;
-- les logos (LCP potentiels) utilisent `loading="eager"` avec `unoptimized` (le PNG contient un chunk propriétaire incompatible avec l'optimiseur Next.js) ;
-- les icônes PWA sont générées aux bonnes dimensions (192×192 avec fond sombre, 512×512, 512×512 maskable, apple-touch-icon 180×180, favicons 16×16 et 32×32) toutes depuis le logo chauve-souris ;
-- le service worker (Serwist) est enregistré et actif en production : les ressources statiques sont précachées et les pages sont servies offline via les stratégies par défaut de Serwist (NetworkFirst pour les navigations, RSC et données) ;
-- l'application est installable sur l'écran d'accueil (PWA) et fonctionne hors-ligne : le middleware lit le token Supabase depuis le cookie plutôt que d'appeler l'API distante, évitant les redirections vers `/login` quand le réseau est coupé ;
-- les caches de navigation sont séparés : les requêtes `navigate` (pleine page) sont servies depuis `pages-navigate` (NetworkFirst), les requêtes `RSC` depuis `pages-rsc`. Chaque page visitée en ligne est automatiquement disponible hors ligne, y compris pour toutes les variantes de query params (ex. `/compteur?pointId=xxx`), grâce à un double cache par URL exacte et par pathname seul ;
-- une page de diagnostic `/sw-status` permet de vérifier l'état du service worker (enregistrement, caches, ping) ;
-- le fichier `proxy.ts` fait office de middleware (Next.js v16) : il protège l'accès aux routes et injecte les infos utilisateur dans les en-têtes ; les ressources PWA (`/logo.png`, `/sw.js`, `/manifest.webmanifest`, `/icon-*.png`, `/favicon-*.png`) sont exclues du contrôle d'accès ;
-- la synchronisation bidirectionnelle est implémentée : un bouton Sync dans l'en-tête pousse d'abord les données locales vers Supabase (sessions, points, observations), puis rapatrie les données distantes de l'utilisateur dans le stockage local ; les conflits (données modifiées à distance après le dernier sync) sont détectés et affichés dans une modale de résolution avec diff ; la synchronisation se déclenche automatiquement au retour en ligne.
-- les superviseurs (inscrits dans la table `supervisors`) peuvent récupérer et visualiser les données de tous les utilisateurs directement dans le tableau de bord via le bouton « Récupérer » ; les sessions distantes sont stockées dans des stores IndexedDB dédiés et affichées avec un badge identifiant l'utilisateur (8 premiers caractères du `user_id`).
-- le fonctionnement hors-ligne est fiabilisé par :
-  - un timeout réseau de 3s sur les caches navigate (`pages-navigate`) et RSC (`pages-rsc`) du service worker, évitant les attentes de 30+s avant le fallback cache ;
-  - un `handlerDidError` sur le cache RSC qui sert la page d'accueil en fallback si la donnée RSC n'est pas en cache ;
-  - l'extraction de la session utilisateur depuis le cookie JWT dans le proxy avant tout appel réseau Supabase, garantissant que les redirections auth ne bloquent pas le mode hors-ligne ;
-  - le support du format `base64-` + base64url (encodage par défaut de `@supabase/ssr`) et du chunking en cookies `sb-{ref}-auth-token.0`, `.1`… utilisé quand le JWT dépasse 3 Ko.
-
-## Routes principales
+## Routes
 
 - `/` : tableau de bord
-- `/login` : connexion
-- `/site` : création d'une nouvelle session
-- `/points` : liste des points d'écoute de la session
-- `/compteur` : compteur chronométré pour un point
-- `/sw-status` : diagnostic du service worker (enregistrement, état, caches)
-- `/auth/callback` : retour OAuth Supabase
+- `/site` : nouvelle session
+- `/points` : points de la session
+- `/compteur` : compteur d'un point
+- `/login` et `/auth/callback` : authentification
+- `/sw-status` : diagnostic PWA
 
-## Installation locale
+## Installation
+
+Prérequis : Node.js 20 ou plus récent.
 
 ```bash
-npm install
+npm ci
 cp .env.example .env
 npm run dev
 ```
 
-La configuration locale nécessite au minimum :
+Variables requises :
 
-```bash
+```dotenv
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET=
 ```
 
-## Commandes utiles
+## Validation
 
 ```bash
-npm run dev
 npm run lint
+npm run typecheck
+npm test
+npm run test:coverage
 npm run build
+npm run test:e2e
+npm audit --omit=dev --audit-level=high
 ```
 
-## Données
+Les tests E2E nécessitent Chromium et ses bibliothèques système :
 
-Les données sont stockées localement dans IndexedDB et synchronisées bidirectionnellement (local ⇄ Supabase) via un bouton Sync dans l'en-tête ou automatiquement au retour en ligne. Le pull rapatrie les données de l'utilisateur depuis Supabase et les fusionne via `updatedAt`. Le schéma Supabase (`sessions`, `points`, `observations`, `species_ref`, `supervisors`) est défini dans `supabase/init.sql` avec RLS et seed des espèces. Les superviseurs (table `supervisors`) peuvent lire toutes les données via une politique RLS dédiée.
+```bash
+npx playwright install --with-deps chromium
+```
 
-Les exports sont générés côté client :
+La CI exécute qualité, couverture, build, audit, Playwright et tests Supabase sous Node 20. La couverture impose au minimum 80 % des lignes et fonctions sur le stockage, la synchronisation, le comptage et les exports.
 
-- CSV détaillé avec sessions, points (identifiés par acronyme + numéro, ex. `CAM-01`), horaires de début/fin, groupes, espèces et tranches ;
-- JSON complet de la session et des points locaux.
+## Base de données et déploiement
 
-Chaque site dispose de points d'écoute prédéfinis avec coordonnées (X, Y) et descriptions de localisation. Lors de la création d'une session, le nombre de points est automatiquement prérempli et les points sont créés avec leurs coordonnées et description de localisation dans IndexedDB. La description est affichée en lecture seule dans le compteur, tandis que le champ Remarques reste libre pour l'observateur.
+Le schéma versionné se trouve dans `supabase/migrations/`. La migration ajoute notamment :
 
-## Limites connues
+- RLS complète, y compris la suppression propriétaire des sessions ;
+- table `supervisors` inaccessible directement aux clients ;
+- fonction contrôlée `current_user_is_supervisor()` ;
+- révision agrégée des sessions ;
+- RPC transactionnelle `sync_session_snapshot()` ;
+- contraintes uniques et seed espèces idempotent.
 
-- Pas encore de tests automatisés.
+La migration n'est pas appliquée automatiquement au projet distant. Après sauvegarde de la base, la valider localement puis la pousser manuellement :
 
-## Démo
+```bash
+supabase start
+supabase db reset
+supabase test db
+supabase link --project-ref VOTRE_REFERENCE
+supabase db push --dry-run
+supabase db push
+```
 
-[https://chiroptere-bxl.vercel.app](https://chiroptere-bxl.vercel.app)
+Ne pas exécuter les deux dernières commandes sans validation explicite du propriétaire du projet.
 
-## Auteurs
+## Sécurité et offline
 
-- [@viomayo](https://www.github.com/viomayo)
-- [@thedasken](https://www.github.com/thedasken)
+Le Proxy peut lire un JWT non expiré depuis les cookies pour laisser ouvrir le shell déjà mis en cache hors ligne. Cette lecture ne remplace pas l'autorisation serveur : toute donnée distante et tout droit superviseur restent contrôlés par Supabase Auth et les politiques RLS.
+
+## Démo et auteurs
+
+[Démo](https://chiroptere-bxl.vercel.app) · [@viomayo](https://github.com/viomayo) · [@thedasken](https://github.com/thedasken)
