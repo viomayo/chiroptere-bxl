@@ -14,7 +14,7 @@ L'application est aujourd'hui un prototype local-first fonctionnel :
 - les pastilles de tranches sont cliquables : un clic sur une pastille vide ajoute directement un comptage dans cette tranche, sans passer par le bouton + ; l'espacement réduit au mobile (`gap-px`) permet d'afficher les 18 tranches des transects forestiers sur une seule ligne ;
 - chaque compteur (groupe et espèce) est indépendant : cliquer une pastille dans un groupe ou une espèce n'affecte pas les autres ;
 - le sélecteur d'espèces est intégré en ligne au compteur : cliquer le bouton + d'un groupe ou une pastille de tranche ouvre un choix d'espèces immédiat pour cette tranche, sans accordéon séparé ; un résumé des espèces comptées apparaît sous chaque groupe ;
-- le bouton MAX remplit toutes les tranches d'un groupe en un clic et active le mode « auto-picker » : le sélecteur d'espèces s'ouvre automatiquement à chaque nouvelle tranche pour noter les espèces présentes tranche par tranche ;
+- le bouton MAX remplit toutes les tranches d'un groupe en un clic et active le mode « auto-picker » : le sélecteur d'espèces s'ouvre automatiquement à chaque nouvelle tranche pour noter les espèces présentes tranche par tranche ; sur mobile, le bouton MAX est placé sous les boutons −/+ pour éviter les clics accidentels ;
 - le bouton − retire la tranche courante (celle du timer) du groupe et des espèces associées ; un bouton « Annuler » (undo) permet de revenir sur la dernière action (+, -, MAX, ajout d'espèce) en restaurant l'état précédent ;
 - les pastilles de tranches déjà remplies sont cliquables : un clic ouvre le sélecteur d'espèces pour cette tranche ; un second clic (picker déjà ouvert) retire le contact du groupe et des espèces associées, permettant de corriger un clic accidentel ;
 - un mode « Révision » est disponible après la fin du point : il affiche une grille complète espèces × tranches avec des cases à cocher pour chaque combinaison ;
@@ -24,11 +24,11 @@ L'application est aujourd'hui un prototype local-first fonctionnel :
 - les icônes PWA sont générées aux bonnes dimensions (192×192 avec fond sombre, 512×512, 512×512 maskable, apple-touch-icon 180×180, favicons 16×16 et 32×32) toutes depuis le logo chauve-souris ;
 - le service worker (Serwist) est enregistré et actif en production : les ressources statiques sont précachées et les pages sont servies offline via les stratégies par défaut de Serwist (NetworkFirst pour les navigations, RSC et données) ;
 - l'application est installable sur l'écran d'accueil (PWA) et fonctionne hors-ligne : le middleware lit le token Supabase depuis le cookie plutôt que d'appeler l'API distante, évitant les redirections vers `/login` quand le réseau est coupé ;
-- les caches de navigation sont séparés : les requêtes `navigate` (pleine page) sont servies depuis `pages-navigate` (NetworkFirst), les requêtes `RSC` depuis `pages-rsc`. Chaque page visitée en ligne est automatiquement disponible hors ligne, y compris pour toutes les variantes de query params (ex. `/compteur?pointId=xxx`), grâce à un double cache par URL exacte et par pathname seul ;
+- les caches de navigation sont séparés : les requêtes `navigate` (pleine page) sont servies depuis `pages-navigate` (NetworkFirst), les requêtes `RSC` depuis `pages-rsc`. Chaque page visitée en ligne est automatiquement disponible hors ligne, y compris pour toutes les variantes de query params (ex. `/compteur?pointId=xxx`), grâce à un double cache par URL exacte et par pathname seul ; les points d'écoute utilisent `<a href>` (navigation plein document) plutôt que `router.push()` (RSC), permettant au service worker de servir n'importe quel point hors ligne via le cache pathname ;
 - une page de diagnostic `/sw-status` permet de vérifier l'état du service worker (enregistrement, caches, ping) ;
 - le fichier `proxy.ts` fait office de middleware (Next.js v16) : il protège l'accès aux routes et injecte les infos utilisateur dans les en-têtes ; les ressources PWA (`/logo.png`, `/sw.js`, `/manifest.webmanifest`, `/icon-*.png`, `/favicon-*.png`) sont exclues du contrôle d'accès ;
 - la synchronisation bidirectionnelle est implémentée : un bouton Sync dans l'en-tête pousse d'abord les données locales vers Supabase (sessions, points, observations), puis rapatrie les données distantes de l'utilisateur dans le stockage local ; les conflits (données modifiées à distance après le dernier sync) sont détectés et affichés dans une modale de résolution avec diff ; la synchronisation se déclenche automatiquement au retour en ligne.
-- les superviseurs (inscrits dans la table `supervisors`) peuvent récupérer et visualiser les données de tous les utilisateurs directement dans le tableau de bord via le bouton « Récupérer » ; les sessions distantes sont stockées dans des stores IndexedDB dédiés et affichées avec un badge identifiant l'utilisateur (8 premiers caractères du `user_id`).
+- les superviseurs (inscrits dans la table `supervisors`) peuvent récupérer et visualiser les données de tous les utilisateurs directement dans le tableau de bord via le bouton « Récupérer » ; les sessions distantes sont stockées dans des stores IndexedDB dédiés et affichées avec un badge identifiant l'utilisateur (8 premiers caractères du `user_id`). Cliquer sur une session distante affiche ses points d'écoute en lecture seule, exportables en CSV/JSON (avec le `user_id`/`user_name` de l'utilisateur concerné).
 - le fonctionnement hors-ligne est fiabilisé par :
   - un timeout réseau de 3s sur les caches navigate (`pages-navigate`) et RSC (`pages-rsc`) du service worker, évitant les attentes de 30+s avant le fallback cache ;
   - un `handlerDidError` sur le cache RSC qui sert la page d'accueil en fallback si la donnée RSC n'est pas en cache ;
@@ -75,8 +75,9 @@ Les données sont stockées localement dans IndexedDB et synchronisées bidirect
 
 Les exports sont générés côté client :
 
-- CSV détaillé avec sessions, points (identifiés par acronyme + numéro, ex. `CAM-01`), horaires de début/fin, groupes, espèces et tranches ;
-- JSON complet de la session et des points locaux.
+- CSV détaillé avec sessions, points (identifiés par acronyme + numéro, ex. `CAM-01`), `user_id`/`user_name`, horaires de début/fin, groupes, espèces et tranches ;
+- JSON complet de la session et des points, avec les infos utilisateur ;
+- les sessions distantes (vue superviseur) sont également exportables en CSV/JSON.
 
 Chaque site dispose de points d'écoute prédéfinis avec coordonnées (X, Y) et descriptions de localisation. Lors de la création d'une session, le nombre de points est automatiquement prérempli et les points sont créés avec leurs coordonnées et description de localisation dans IndexedDB. La description est affichée en lecture seule dans le compteur, tandis que le champ Remarques reste libre pour l'observateur.
 

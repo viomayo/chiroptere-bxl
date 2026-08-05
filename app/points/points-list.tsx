@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { getSessions, getSessionById, initSessionPoints, getRemoteSessionById, getRemotePointsBySession, type SessionData, type PointData, type PointCounts } from '@/lib/idb'
+import { getSessions, getSessionById, initSessionPoints, getRemoteSessionById, getRemotePointsBySession, type SessionData, type RemoteSessionData, type PointData, type PointCounts } from '@/lib/idb'
 import { ChevronRight, Download, Eye } from 'lucide-react'
 
 type Statut = PointData['statut']
@@ -75,9 +75,11 @@ function tranches(value: number[]): string {
   return value.join('|')
 }
 
-function exportCSV(session: SessionData, points: PointData[]) {
+function exportCSV(session: SessionData, points: PointData[], userId?: string, userName?: string | null) {
   const header = [
     'session_id',
+    'user_id',
+    'user_name',
     'site_nom',
     'site_acronyme',
     'type_site',
@@ -104,6 +106,8 @@ function exportCSV(session: SessionData, points: PointData[]) {
   const rows = points.flatMap((p) => {
     const base = [
       session.id,
+      userId ?? '',
+      userName ?? '',
       session.nomSite,
       session.acronyme,
       session.typeSite,
@@ -125,9 +129,22 @@ function exportCSV(session: SessionData, points: PointData[]) {
     const observationRows: string[] = []
     for (const group of GROUP_KEYS) {
       const groupCount = p.counts[group]
-      if (groupCount.total > 0) {
+      if (groupCount.total === 0) continue
+
+      const speciesTotal = groupCount.species.reduce((acc, sp) => acc + sp.count, 0)
+      const unassignedCount = groupCount.total - speciesTotal
+
+      const assignedTranches = new Set<number>()
+      for (const sp of groupCount.species) {
+        for (const t of sp.trancheHistory) {
+          assignedTranches.add(t)
+        }
+      }
+
+      if (unassignedCount > 0) {
+        const unassignedTranches = groupCount.trancheHistory.filter((t) => !assignedTranches.has(t))
         observationRows.push(
-          [...base, 'groupe', GROUP_LABELS[group], '', groupCount.total, tranches(groupCount.trancheHistory)]
+          [...base, 'groupe', GROUP_LABELS[group], '', unassignedCount, tranches(unassignedTranches)]
             .map(csvCell)
             .join(',')
         )
@@ -159,11 +176,11 @@ function exportCSV(session: SessionData, points: PointData[]) {
   )
 }
 
-function exportJSON(session: SessionData, points: PointData[]) {
+function exportJSON(session: SessionData, points: PointData[], userId?: string, userName?: string | null) {
   const exportedAt = new Date().toISOString()
 
   downloadBlob(
-    JSON.stringify({ exportedAt, session, points }, null, 2),
+    JSON.stringify({ exportedAt, user: userId ? { id: userId, name: userName } : undefined, session, points }, null, 2),
     `${session.acronyme}-session.json`,
     'application/json'
   )
@@ -219,6 +236,19 @@ export default function PointsList() {
     return () => { active = false }
   }, [sessionId])
 
+  useEffect(() => {
+    if (isRemote || !sessionId) return
+    if (typeof caches === 'undefined') return
+    caches.open('pages-navigate').then((cache) => {
+      cache.match('/compteur').then((existing) => {
+        if (existing) return
+        fetch('/compteur', { credentials: 'same-origin' }).then((res) => {
+          if (res.ok && !res.redirected) cache.put('/compteur', res)
+        }).catch(() => {})
+      })
+    }).catch(() => {})
+  }, [isRemote, sessionId])
+
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -268,13 +298,13 @@ export default function PointsList() {
       {points.map((point) => {
         const label = `${session.acronyme}-${String(point.numero).padStart(2, '0')}`
         const groups = getGroupTotals(point.counts)
-        const Wrapper = isRemote ? 'div' : 'button'
+        const compteurHref = `/compteur?pointId=${point.id}`
         return (
-          <Wrapper
+          <a
             key={point.id}
-            type={isRemote ? undefined : 'button'}
-            onClick={isRemote ? undefined : () => router.push(`/compteur?pointId=${point.id}`)}
-            className={`w-full text-left rounded-xl border border-foreground/8 bg-background px-4 py-3.5 flex items-center gap-3 transition-colors ${isRemote ? '' : 'hover:bg-foreground/3 active:bg-foreground/6 cursor-pointer'}`}
+            href={isRemote ? undefined : compteurHref}
+            className={`block w-full text-left rounded-xl border border-foreground/8 bg-background px-4 py-3.5 flex items-center gap-3 transition-colors ${isRemote ? 'select-none' : 'hover:bg-foreground/3 active:bg-foreground/6 cursor-pointer'}`}
+            tabIndex={isRemote ? -1 : 0}
           >
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -307,30 +337,38 @@ export default function PointsList() {
               )}
             </div>
             {!isRemote && <ChevronRight size={15} className="text-foreground/20 shrink-0" />}
-          </Wrapper>
+          </a>
         )
       })}
 
-      {!isRemote && (
-        <div className="flex gap-2 pt-1">
-          <button
-            type="button"
-            onClick={() => exportCSV(session, points)}
-            className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-foreground/10 px-4 py-2.5 text-xs font-medium text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80 transition-colors cursor-pointer"
-          >
-            <Download size={13} />
-            Exporter CSV
-          </button>
-          <button
-            type="button"
-            onClick={() => exportJSON(session, points)}
-            className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-foreground/10 px-4 py-2.5 text-xs font-medium text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80 transition-colors cursor-pointer"
-          >
-            <Download size={13} />
-            Exporter JSON
-          </button>
-        </div>
-      )}
+      <div className="flex gap-2 pt-1">
+        <button
+          type="button"
+          onClick={() => exportCSV(
+            session,
+            points,
+            isRemote ? (session as RemoteSessionData).userId : undefined,
+            isRemote ? (session as RemoteSessionData).userName : undefined
+          )}
+          className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-foreground/10 px-4 py-2.5 text-xs font-medium text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80 transition-colors cursor-pointer"
+        >
+          <Download size={13} />
+          Exporter CSV
+        </button>
+        <button
+          type="button"
+          onClick={() => exportJSON(
+            session,
+            points,
+            isRemote ? (session as RemoteSessionData).userId : undefined,
+            isRemote ? (session as RemoteSessionData).userName : undefined
+          )}
+          className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-foreground/10 px-4 py-2.5 text-xs font-medium text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80 transition-colors cursor-pointer"
+        >
+          <Download size={13} />
+          Exporter JSON
+        </button>
+      </div>
     </div>
   )
 }
