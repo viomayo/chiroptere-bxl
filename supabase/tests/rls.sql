@@ -1,8 +1,10 @@
 begin;
-select plan(7);
+select plan(9);
 
 select has_table('public', 'supervisors', 'supervisors exists');
 select row_security_active('public.supervisors'), 'supervisors RLS is active';
+select has_schema('private', 'private helper schema exists');
+select has_function('private', 'is_supervisor', array[]::text[], 'private supervisor helper exists');
 select has_function('public', 'current_user_is_supervisor', array[]::text[], 'safe supervisor check exists');
 select has_function('public', 'sync_session_snapshot', array['jsonb', 'bigint', 'boolean'], 'snapshot RPC exists');
 select policies_are('public', 'sessions', array['owner_delete', 'owner_insert', 'owner_select', 'owner_update']);
