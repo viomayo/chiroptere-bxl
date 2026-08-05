@@ -18,13 +18,11 @@ export function sessionToCSV(session: SessionData, points: PointData[], user?: {
       const count = point.counts[group]
       if (count.total === 0) continue
       const speciesTotal = count.species.reduce((acc, sp) => acc + sp.count, 0)
-      const unassignedCount = count.total - speciesTotal
+      const unassignedCount = Math.max(0, count.total - speciesTotal)
       const assignedTranches = new Set<number>()
       for (const sp of count.species) for (const t of sp.trancheHistory) assignedTranches.add(t)
-      if (unassignedCount > 0) {
-        const unassignedTranches = count.trancheHistory.filter((t) => !assignedTranches.has(t))
-        observations.push([...base, 'groupe', GROUP_LABELS[group], '', unassignedCount, unassignedTranches.join('|')].map(csvCell).join(','))
-      }
+      const unassignedTranches = count.trancheHistory.filter((t) => !assignedTranches.has(t))
+      observations.push([...base, 'groupe', GROUP_LABELS[group], '', unassignedCount, unassignedTranches.join('|')].map(csvCell).join(','))
       for (const species of count.species) if (species.count > 0) observations.push([...base, 'espece', GROUP_LABELS[group], species.name, species.count, species.trancheHistory.join('|')].map(csvCell).join(','))
     }
     return observations.length ? observations : [[...base, 'point', '', '', 0, ''].map(csvCell).join(',')]
