@@ -8,7 +8,7 @@ function decodeJWT(token: string): Record<string, unknown> | null {
   try {
     const payload = token.split('.')[1]
     if (!payload) return null
-    return JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')))
+    return JSON.parse(base64urlDecode(payload))
   } catch {
     return null
   }
@@ -46,7 +46,17 @@ function parseTokenValue(raw: string): Record<string, unknown> | null {
   const value = raw.startsWith(B64URL_PREFIX)
     ? base64urlDecode(raw.slice(B64URL_PREFIX.length))
     : raw
-  return decodeJWT(value)
+  let token = value
+  try {
+    const parsed = JSON.parse(value) as unknown
+    if (Array.isArray(parsed) && typeof parsed[0] === 'string') token = parsed[0]
+    else if (parsed && typeof parsed === 'object' && 'access_token' in parsed) token = String((parsed as { access_token: unknown }).access_token)
+  } catch {
+    // The cookie may already contain the raw access token.
+  }
+  const payload = decodeJWT(token)
+  const expiresAt = typeof payload?.exp === 'number' ? payload.exp * 1000 : 0
+  return expiresAt > Date.now() ? payload : null
 }
 
 function getSessionFromCookies(allCookies: { name: string; value: string }[]): {
@@ -125,11 +135,8 @@ export async function proxy(request: NextRequest) {
     // Vérifier si l'utilisateur est superviseur (best-effort, pas de fallback offline)
     if (userEmail) {
       try {
-        const { count } = await supabase
-          .from('supervisors')
-          .select('*', { count: 'exact', head: true })
-          .ilike('email', userEmail)
-        if (count && count > 0) {
+        const { data: isSupervisor } = await supabase.rpc('current_user_is_supervisor')
+        if (isSupervisor === true) {
           requestHeaders.set('x-user-is-supervisor', 'true')
         }
       } catch {
