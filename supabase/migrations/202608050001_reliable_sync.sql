@@ -66,6 +66,13 @@ delete from public.species_ref a
 using public.species_ref b
 where a.ctid < b.ctid and a.groupe = b.groupe and a.espece = b.espece;
 
+delete from public.observations a
+using public.observations b
+where a.ctid < b.ctid
+  and a.point_id = b.point_id
+  and a.groupe = b.groupe
+  and a.espece = b.espece;
+
 create unique index if not exists uq_species_ref_group_species
   on public.species_ref(groupe, espece);
 create unique index if not exists uq_observations_point_group_species
