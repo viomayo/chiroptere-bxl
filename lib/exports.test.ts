@@ -28,6 +28,16 @@ describe('exports', () => {
     expect(lines.find((l) => l.includes(',groupe,Pipistrelles,,1,4'))).toBeTruthy()
     expect(lines.find((l) => l.includes(',espece,Pipistrelles,Pipistrelle commune,3,1|2|3'))).toBeTruthy()
   })
+  it('keeps the group row when species exceed the group total and clamps to zero', () => {
+    const counts = defaultCounts()
+    counts.pipistrelles = { total: 1, trancheHistory: [1], species: [{ name: 'Pipistrelle commune', count: 1, trancheHistory: [1] }, { name: 'Pipistrelle de Kuhl', count: 1, trancheHistory: [1] }] }
+    const csv = sessionToCSV(session, [{ ...point, counts }], { id: 'user-a', name: 'Alice' })
+    const lines = csv.split('\n')
+    const groupRow = lines.find((l) => l.includes(',groupe,Pipistrelles,,0,'))
+    expect(groupRow).toBeTruthy()
+    expect(lines.find((l) => l.includes(',espece,Pipistrelles,Pipistrelle commune,1,1'))).toBeTruthy()
+    expect(lines.find((l) => l.includes(',espece,Pipistrelles,Pipistrelle de Kuhl,1,1'))).toBeTruthy()
+  })
   it('creates deterministic JSON when given a date', () => {
     expect(JSON.parse(sessionToJSON(session, [point], 'now'))).toMatchObject({ exportedAt: 'now', session: { id: session.id }, points: [{ id: 'p1' }] })
   })
