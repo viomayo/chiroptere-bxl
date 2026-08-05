@@ -26,6 +26,7 @@ const navigateCache: RuntimeCaching = {
   handler: new NetworkFirst({
     cacheName: NAV_CACHE,
     networkTimeoutSeconds: 3,
+    matchOptions: { ignoreSearch: true },
     plugins: [
       new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 24 * 60 * 60 }),
       {

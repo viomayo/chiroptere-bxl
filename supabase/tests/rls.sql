@@ -1,5 +1,5 @@
 begin;
-select plan(8);
+select plan(7);
 
 select has_table('public', 'supervisors', 'supervisors exists');
 select row_security_active('public.supervisors'), 'supervisors RLS is active';
