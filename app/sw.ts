@@ -1,5 +1,5 @@
 import type { PrecacheEntry, SerwistGlobalConfig, RuntimeCaching } from 'serwist'
-import { Serwist, NetworkFirst, ExpirationPlugin } from 'serwist'
+import { Serwist, NetworkFirst, StaleWhileRevalidate, ExpirationPlugin } from 'serwist'
 import { defaultCache } from '@serwist/next/worker'
 
 declare global {
@@ -23,9 +23,8 @@ const navigateCache: RuntimeCaching = {
     if (!sameOrigin) return false
     return request.mode === 'navigate'
   },
-  handler: new NetworkFirst({
+  handler: new StaleWhileRevalidate({
     cacheName: NAV_CACHE,
-    networkTimeoutSeconds: 3,
     matchOptions: { ignoreSearch: true },
     plugins: [
       new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 24 * 60 * 60 }),
