@@ -79,7 +79,7 @@ function extractObservations(point: PointData): ObservationRow[] {
   return rows
 }
 
-async function localSnapshot(session: SessionData): Promise<SessionSnapshot> {
+export async function buildLocalSnapshot(session: SessionData): Promise<SessionSnapshot> {
   const points = await getPointsBySession(session.ownerId, session.id)
   return {
     session: {
@@ -113,7 +113,7 @@ async function localSnapshot(session: SessionData): Promise<SessionSnapshot> {
   }
 }
 
-function sessionFromRow(ownerId: string, row: Record<string, unknown>): SessionData {
+export function mapSessionRow(ownerId: string, row: Record<string, unknown>): SessionData {
   return {
     id: row.id as string,
     ownerId,
@@ -136,7 +136,7 @@ function sessionFromRow(ownerId: string, row: Record<string, unknown>): SessionD
   }
 }
 
-function countsFromRows(rows: Record<string, unknown>[]): PointCounts {
+export function rebuildCounts(rows: Record<string, unknown>[]): PointCounts {
   const counts = defaultCounts()
   for (const row of rows) {
     const group = row.groupe as GroupKey
@@ -167,7 +167,7 @@ async function fetchRemoteSnapshot(ownerId: string, sessionId: string): Promise<
     list.push(observation)
     obsByPoint.set(observation.point_id as string, list)
   }
-  const session = sessionFromRow(ownerId, row as Record<string, unknown>)
+  const session = mapSessionRow(ownerId, row as Record<string, unknown>)
   const points = (pointRows as Record<string, unknown>[]).map((point) => ({
     id: point.id as string,
     ownerId,
@@ -177,7 +177,7 @@ async function fetchRemoteSnapshot(ownerId: string, sessionId: string): Promise<
     heureFin: (point.heure_fin as string) || null,
     nbEspeces: Number(point.nb_especes ?? 0),
     statut: (point.statut as PointData['statut']) || 'non_demarre',
-    counts: countsFromRows(obsByPoint.get(point.id as string) ?? []),
+    counts: rebuildCounts(obsByPoint.get(point.id as string) ?? []),
     localisation: (point.localisation as string) || '',
     commentaire: (point.commentaire as string) || '',
     timerState: null,
@@ -192,7 +192,7 @@ function format(value: unknown): string {
   return typeof value === 'string' ? value : JSON.stringify(value ?? null)
 }
 
-async function buildConflict(local: SessionData, remote: { session: SessionData; points: PointData[] }): Promise<SyncConflict> {
+export async function buildSyncConflict(local: SessionData, remote: { session: SessionData; points: PointData[] }): Promise<SyncConflict> {
   const localPoints = await getPointsBySession(local.ownerId, local.id)
   const fields: SyncConflict['fields'] = []
   const pairs: Array<[string, unknown, unknown]> = [
@@ -224,7 +224,7 @@ export function clearStoredConflicts() { storeConflicts([]) }
 
 async function pushSession(session: SessionData, force = false): Promise<'ok' | 'conflict' | 'error'> {
   const supabase = createClient()
-  const snapshot = await localSnapshot(session)
+  const snapshot = await buildLocalSnapshot(session)
   const { data, error } = await supabase.rpc('sync_session_snapshot', {
     p_snapshot: snapshot,
     p_expected_revision: session.lastSyncedRemoteRevision,
@@ -273,7 +273,7 @@ export async function syncAll(ownerId: string): Promise<SyncResult> {
       result.failures.push({ sessionId: session.id, message: 'Échec du snapshot distant' })
     } else {
       const remote = await fetchRemoteSnapshot(ownerId, session.id)
-      if (remote) result.conflicts.push(await buildConflict(session, remote))
+      if (remote) result.conflicts.push(await buildSyncConflict(session, remote))
       else {
         result.errors++
         result.failures.push({ sessionId: session.id, message: 'Conflit distant illisible' })
@@ -307,7 +307,7 @@ export async function pullMySessions(ownerId: string): Promise<PullResult> {
       continue
     }
     if (existing?.dirty) {
-      result.conflicts.push(await buildConflict(existing, remote))
+      result.conflicts.push(await buildSyncConflict(existing, remote))
       continue
     }
     await replaceSessionWithPoints(remote.session, remote.points)
@@ -341,7 +341,7 @@ export async function pullAllSessionsForSupervisor(cachedBy: string): Promise<{ 
   const { data: sessions, error } = await supabase.from('sessions').select('*').order('created_at', { ascending: false })
   if (error || !sessions) throw new Error(error?.message || 'Sessions distantes indisponibles')
 
-  const staged: Array<{ session: ReturnType<typeof sessionFromRow>; points: PointData[]; userId: string }> = []
+  const staged: Array<{ session: ReturnType<typeof mapSessionRow>; points: PointData[]; userId: string }> = []
   for (const row of sessions as Record<string, unknown>[]) {
     const userId = row.user_id as string
     if (userId === cachedBy) continue

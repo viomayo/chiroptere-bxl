@@ -11,10 +11,10 @@ import {
   type PointData,
   type PointCounts,
   type GroupCount,
-  type PointTimerState,
   type SessionData,
 } from '@/lib/idb'
 import { getSiteConfig, type SiteTypeConfig } from '@/lib/site-config'
+import { addTranche, buildTimerState, cloneCounts, countSpecies, fillGroup, removeTranche, toggleSpecies } from '@/lib/counter'
 import { Pause, Play, RotateCcw, Undo2, Eye, EyeOff } from 'lucide-react'
 
 type GroupKey = keyof PointCounts
@@ -88,43 +88,6 @@ function announce(text: string) {
   u.lang = 'fr-FR'
   u.rate = 0.95
   window.speechSynthesis.speak(u)
-}
-
-function countSpecies(counts: PointCounts): number {
-  return (
-    GROUP_KEYS.reduce((acc, g) => acc + counts[g].species.filter((s) => s.count > 0).length, 0) ||
-    GROUP_KEYS.filter((g) => counts[g].total > 0).length
-  )
-}
-
-function buildTimerState({
-  started,
-  paused,
-  finished,
-  currentTranche,
-  trancheElapsed,
-  pointStartTime,
-  trancheStartTime,
-}: {
-  started: boolean
-  paused: boolean
-  finished: boolean
-  currentTranche: number
-  trancheElapsed: number
-  pointStartTime: Date | null
-  trancheStartTime: Date | null
-}): PointTimerState | null {
-  if (!started) return null
-  return {
-    started,
-    paused,
-    finished,
-    currentTranche,
-    trancheElapsed,
-    pointStartTime: pointStartTime?.toISOString() ?? null,
-    trancheStartTime: trancheStartTime?.toISOString() ?? null,
-    updatedAt: new Date().toISOString(),
-  }
 }
 
 // ── Tranche dots ──────────────────────────────────────────────────────────────
@@ -466,23 +429,6 @@ export default function CompteurScreen({ ownerId }: { ownerId: string }) {
   const actionHistoryRef = useRef<PointCounts[]>([])
   const [canUndo, setCanUndo] = useState(false)
 
-  function cloneGroupCount(g: GroupCount): GroupCount {
-    return {
-      total: g.total,
-      trancheHistory: [...g.trancheHistory],
-      species: g.species.map((s) => ({ ...s, trancheHistory: [...s.trancheHistory] })),
-    }
-  }
-
-  function cloneCounts(c: PointCounts): PointCounts {
-    return {
-      pipistrelles: cloneGroupCount(c.pipistrelles),
-      murins: cloneGroupCount(c.murins),
-      serotules: cloneGroupCount(c.serotules),
-      autres: cloneGroupCount(c.autres),
-    }
-  }
-
   function pushSnapshot() {
     const history = actionHistoryRef.current
     actionHistoryRef.current = [...history.slice(-49), cloneCounts(counts)]
@@ -733,43 +679,14 @@ export default function CompteurScreen({ ownerId }: { ownerId: string }) {
     pushSnapshot()
     const t = currentTrancheRef.current
     const g = counts[group]
-    if (!g.trancheHistory.includes(t)) {
-      setCounts((prev) => {
-        const g = prev[group]
-        if (g.trancheHistory.includes(t)) return prev
-        return { ...prev, [group]: { ...g, total: g.total + 1, trancheHistory: [...g.trancheHistory, t] } }
-      })
-    }
+    if (!g.trancheHistory.includes(t)) setCounts((prev) => addTranche(prev, group, t))
     setMaxMode((prev) => ({ ...prev, [group]: false }))
     setDetailTranche((prev) => ({ ...prev, [group]: t }))
   }
 
   function handleRemoveTranche(group: GroupKey, tranche: number) {
     pushSnapshot()
-    setCounts((prev) => {
-      const g = prev[group]
-      if (g.total === 0 || !g.trancheHistory.includes(tranche)) return prev
-      return {
-        ...prev,
-        [group]: {
-          ...g,
-          total: g.total - 1,
-          trancheHistory: g.trancheHistory.filter((t) => t !== tranche),
-          species: g.species
-            .map((s) => {
-              if (s.trancheHistory.includes(tranche)) {
-                return {
-                  ...s,
-                  count: s.count - 1,
-                  trancheHistory: s.trancheHistory.filter((t) => t !== tranche),
-                }
-              }
-              return s
-            })
-            .filter((s) => s.count > 0),
-        },
-      }
-    })
+    setCounts((prev) => removeTranche(prev, group, tranche))
     setDetailTranche((prev) => ({ ...prev, [group]: null }))
   }
 
@@ -784,67 +701,19 @@ export default function CompteurScreen({ ownerId }: { ownerId: string }) {
       return
     }
     pushSnapshot()
-    setCounts((prev) => {
-      const g = prev[group]
-      if (g.trancheHistory.includes(tranche)) return prev
-      return { ...prev, [group]: { ...g, total: g.total + 1, trancheHistory: [...g.trancheHistory, tranche] } }
-    })
+    setCounts((prev) => addTranche(prev, group, tranche))
     setDetailTranche((prev) => ({ ...prev, [group]: tranche }))
   }
 
   function handleToggleSpecies(group: GroupKey, sp: string, tranche: number) {
     pushSnapshot()
-    setCounts((prev) => {
-      const g = prev[group]
-      const existing = g.species.find((s) => s.name === sp)
-      if (existing?.trancheHistory.includes(tranche)) {
-        const species = g.species
-          .map((s) =>
-            s.name === sp
-              ? { ...s, count: s.count - 1, trancheHistory: s.trancheHistory.filter((t) => t !== tranche) }
-              : s
-          )
-          .filter((s) => s.count > 0)
-        return { ...prev, [group]: { ...g, species } }
-      }
-      const species = existing
-        ? g.species.map((s) =>
-            s.name === sp
-              ? { ...s, count: s.count + 1, trancheHistory: [...s.trancheHistory, tranche] }
-              : s
-          )
-        : [...g.species, { name: sp, count: 1, trancheHistory: [tranche] }]
-      return { ...prev, [group]: { ...g, species } }
-    })
+    setCounts((prev) => toggleSpecies(prev, group, sp, tranche))
   }
 
   function handleRemove(group: GroupKey) {
     pushSnapshot()
     const tranche = currentTrancheRef.current
-    setCounts((prev) => {
-      const g = prev[group]
-      if (g.total === 0 || !g.trancheHistory.includes(tranche)) return prev
-      return {
-        ...prev,
-        [group]: {
-          ...g,
-          total: g.total - 1,
-          trancheHistory: g.trancheHistory.filter((t) => t !== tranche),
-          species: g.species
-            .map((s) => {
-              if (s.trancheHistory.includes(tranche)) {
-                return {
-                  ...s,
-                  count: s.count - 1,
-                  trancheHistory: s.trancheHistory.filter((t) => t !== tranche),
-                }
-              }
-              return s
-            })
-            .filter((s) => s.count > 0),
-        },
-      }
-    })
+    setCounts((prev) => removeTranche(prev, group, tranche))
     setDetailTranche((prev) => ({ ...prev, [group]: null }))
   }
 
@@ -856,11 +725,7 @@ export default function CompteurScreen({ ownerId }: { ownerId: string }) {
       return
     }
     pushSnapshot()
-    const allTranches = Array.from({ length: config.nbTranches }, (_, i) => i + 1)
-    setCounts((prev) => ({
-      ...prev,
-      [group]: { ...prev[group], total: config.nbTranches, trancheHistory: allTranches },
-    }))
+    setCounts((prev) => fillGroup(prev, group, config.nbTranches))
     setMaxMode((prev) => ({ ...prev, [group]: true }))
     setDetailTranche((prev) => ({ ...prev, [group]: currentTrancheRef.current }))
   }

@@ -4,11 +4,10 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getSessions, getSessionById, initSessionPoints, getRemoteSessionById, getRemotePointsBySession, type SessionData, type PointData, type PointCounts } from '@/lib/idb'
 import { ChevronRight, Download, Eye } from 'lucide-react'
+import { downloadText, sessionToCSV, sessionToJSON } from '@/lib/exports'
 
 type Statut = PointData['statut']
 type GroupKey = keyof PointCounts
-
-const GROUP_KEYS: GroupKey[] = ['pipistrelles', 'murins', 'serotules', 'autres']
 
 const GROUP_LABELS: Record<GroupKey, string> = {
   pipistrelles: 'Pipistrelles',
@@ -55,118 +54,12 @@ function getGroupTotals(counts: PointCounts): { key: GroupKey; label: string; to
     .filter((g) => g.total > 0)
 }
 
-function downloadBlob(content: string, filename: string, mime: string) {
-  const blob = new Blob([content], { type: mime })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-function csvCell(value: string | number | null | undefined): string {
-  const text = value == null ? '' : String(value)
-  if (!/[",\n\r]/.test(text)) return text
-  return `"${text.replaceAll('"', '""')}"`
-}
-
-function tranches(value: number[]): string {
-  return value.join('|')
-}
-
 function exportCSV(session: SessionData, points: PointData[]) {
-  const header = [
-    'session_id',
-    'site_nom',
-    'site_acronyme',
-    'type_site',
-    'debut_session',
-    'fin_session',
-    'compteur_principal',
-    'autres_compteurs',
-    'detecteurs',
-    'point',
-    'heure_debut',
-    'heure_fin',
-    'nb_especes',
-    'statut',
-    'point_commentaire',
-    'coord_x',
-    'coord_y',
-    'niveau',
-    'groupe',
-    'espece',
-    'total',
-    'tranches',
-  ].join(',')
-
-  const rows = points.flatMap((p) => {
-    const base = [
-      session.id,
-      session.nomSite,
-      session.acronyme,
-      session.typeSite,
-      session.debutSession,
-      session.finSession,
-      session.compteurPrincipal,
-      session.autresCompteurs,
-      session.detecteurs.join('|'),
-      `${session.acronyme}-${String(p.numero).padStart(2, '0')}`,
-      p.heureDebut,
-      p.heureFin,
-      p.nbEspeces,
-      p.statut,
-      p.commentaire,
-      p.coordX,
-      p.coordY,
-    ]
-
-    const observationRows: string[] = []
-    for (const group of GROUP_KEYS) {
-      const groupCount = p.counts[group]
-      if (groupCount.total > 0) {
-        observationRows.push(
-          [...base, 'groupe', GROUP_LABELS[group], '', groupCount.total, tranches(groupCount.trancheHistory)]
-            .map(csvCell)
-            .join(',')
-        )
-      }
-
-      for (const species of groupCount.species) {
-        if (species.count <= 0) continue
-        observationRows.push(
-          [...base, 'espece', GROUP_LABELS[group], species.name, species.count, tranches(species.trancheHistory)]
-            .map(csvCell)
-            .join(',')
-        )
-      }
-    }
-
-    if (observationRows.length > 0) return observationRows
-
-    return [
-      [...base, 'point', '', '', 0, '']
-        .map(csvCell)
-        .join(','),
-    ]
-  })
-
-  downloadBlob(
-    [header, ...rows].join('\n'),
-    `${session.acronyme}-session.csv`,
-    'text/csv'
-  )
+  downloadText(sessionToCSV(session, points), `${session.acronyme}-session.csv`, 'text/csv')
 }
 
 function exportJSON(session: SessionData, points: PointData[]) {
-  const exportedAt = new Date().toISOString()
-
-  downloadBlob(
-    JSON.stringify({ exportedAt, session, points }, null, 2),
-    `${session.acronyme}-session.json`,
-    'application/json'
-  )
+  downloadText(sessionToJSON(session, points), `${session.acronyme}-session.json`, 'application/json')
 }
 
 export default function PointsList({ ownerId }: { ownerId: string }) {
