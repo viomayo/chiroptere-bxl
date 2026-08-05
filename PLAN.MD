@@ -11,7 +11,7 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 - [fait] Colorer les groupes d'espèces (violet pipistrelles, vert murins, orange sérotules, rose autres) sur les boutons +/− et badges de la liste des points.
 - [fait] Rendre les pastilles de tranches cliquables : un clic ajoute directement un comptage dans cette tranche, sans sélection préalable.
 - [fait] Rendre chaque compteur indépendant (plus de sélection partagée entre groupes ni entre espèces d'un même groupe).
-- [fait] Ajouter des tests ciblés pour IndexedDB, la persistance du compteur, la remise à zéro et les exports.
+- [à faire] Ajouter des tests ciblés pour IndexedDB, la persistance du compteur, la remise à zéro et les exports (aucun test n'existe encore).
 - [fait] Renforcer la validation du formulaire de session.
 - [fait] Vérifier le comportement mobile, notamment la synthèse vocale sur iOS Safari.
 - [fait] Adapter la taille des pastilles de tranches et bulles du timer en responsive (6 px mobile / 12 px desktop) pour tenir sur une ligne avec 18 tranches.
@@ -47,6 +47,7 @@ Transformer le prototype local-first actuel en application de terrain fiable, sy
 - [fait] Ajouter les coordonnées des points avant de réintroduire un export GeoJSON.
 - [fait] Intégrer les 319 points d'écoute prédéfinis (coordonnées X/Y + descriptions) directement dans la configuration des sites. Le nombre de points et leurs données sont automatiquement utilisés lors de la création d'une session.
 - [fait] Ajouter les coordonnées des points (`coord_x`, `coord_y`) dans l'export CSV.
+- [fait] Ajouter `user_id`/`user_name` dans les exports CSV et JSON, et permettre l'export des sessions distantes (vue superviseur).
 
 ## Phase 5 — PWA et offline
 
