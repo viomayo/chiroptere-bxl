@@ -14,6 +14,8 @@
 - [fait] RLS propriétaire et superviseur durcie par migrations versionnées.
 - [fait] Exports CSV et JSON.
 - [fait] Exports CSV/JSON avec `user_id`/`user_name`, y compris pour les sessions distantes (superviseur), et comptage du groupe limité aux contacts non attribués à une espèce.
+- [fait] CSV compatible Excel (UTF-8 avec BOM, séparateur `;`, accents préservés), avec colonne `chouette_hulotte`, et ligne groupe émise seulement si les espèces du groupe diffèrent d'au moins une tranche positive ou s'il reste des contacts non attribués.
+- [fait] Case « Cri(s) de Chouette hulotte » par point, sauvegardée localement, synchronisée et exportée.
 - [fait] Bouton MAX placé sous les boutons −/+ sur mobile pour éviter les clics accidentels.
 - [fait] Tests unitaires/intégration, scénarios Playwright et CI.
 - [fait] Mise à jour vers Next.js 16.3 et audit production sans vulnérabilité connue.
@@ -25,6 +27,7 @@
 - [fait] Dry-run examiné puis migrations appliquées manuellement au Supabase distant.
 - [fait] Vérification distante des RPC, RLS, privilèges, advisors et de l'historique des migrations.
 - [à faire] Exécuter une recette réelle sur iOS Safari et Android installés en PWA.
+- [à faire] Appliquer manuellement la migration `202608060001_owl_call.sql` (colonne `chouette_hulotte`) au Supabase distant avant le déploiement client.
 
 ## Évolutions produit possibles
 

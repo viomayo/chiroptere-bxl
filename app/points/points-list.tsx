@@ -55,7 +55,7 @@ function getGroupTotals(counts: PointCounts): { key: GroupKey; label: string; to
 }
 
 function exportCSV(session: SessionData, points: PointData[], user?: { id?: string | null; name?: string | null }) {
-  downloadText(sessionToCSV(session, points, user), `${session.acronyme}-session.csv`, 'text/csv')
+  downloadText(sessionToCSV(session, points, user), `${session.acronyme}-session.csv`, 'text/csv;charset=utf-8')
 }
 
 function exportJSON(session: SessionData, points: PointData[], user?: { id?: string | null; name?: string | null }) {
