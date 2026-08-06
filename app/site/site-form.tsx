@@ -144,6 +144,7 @@ export default function SiteForm({ compteurPrincipal, ownerId }: { compteurPrinc
           timerState: null,
           coordX: p.x,
           coordY: p.y,
+          chouetteHulotte: false,
           updatedAt: now,
         }))
         await saveSessionWithPoints(session, points)

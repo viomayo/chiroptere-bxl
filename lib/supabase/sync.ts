@@ -107,6 +107,7 @@ export async function buildLocalSnapshot(session: SessionData): Promise<SessionS
       commentaire: point.commentaire,
       coord_x: point.coordX,
       coord_y: point.coordY,
+      chouette_hulotte: point.chouetteHulotte,
       updated_at: point.updatedAt,
     })),
     observations: points.flatMap(extractObservations),
@@ -183,6 +184,7 @@ async function fetchRemoteSnapshot(ownerId: string, sessionId: string): Promise<
     timerState: null,
     coordX: (point.coord_x as number | null) ?? null,
     coordY: (point.coord_y as number | null) ?? null,
+    chouetteHulotte: point.chouette_hulotte === true,
     updatedAt: (point.updated_at as string) || session.updatedAt,
   }))
   return { session, points }

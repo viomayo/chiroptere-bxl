@@ -5,7 +5,7 @@ function session(ownerId: string, id: string, synced = false): SessionData {
   return { id, ownerId, typeSite: 'Parc', nomSite: 'Test', acronyme: 'T', debutSession: '2026-08-05T20:00:00Z', finSession: '', compteurPrincipal: 'Test', autresCompteurs: '', nbPointsEcoute: 1, detecteurs: [], commentaire: '', createdAt: '2026-08-05T20:00:00Z', updatedAt: '2026-08-05T20:00:00Z', syncedAt: synced ? '2026-08-05T20:01:00Z' : null, dirty: !synced, lastSyncedRemoteRevision: synced ? 2 : null, syncError: null }
 }
 function point(ownerId: string, sessionId: string): PointData {
-  return { id: `${sessionId}-p1`, ownerId, sessionId, numero: 1, heureDebut: null, heureFin: null, nbEspeces: 0, statut: 'non_demarre', counts: defaultCounts(), localisation: '', commentaire: '', timerState: null, coordX: null, coordY: null, updatedAt: '2026-08-05T20:00:00Z' }
+  return { id: `${sessionId}-p1`, ownerId, sessionId, numero: 1, heureDebut: null, heureFin: null, nbEspeces: 0, statut: 'non_demarre', counts: defaultCounts(), localisation: '', commentaire: '', timerState: null, coordX: null, coordY: null, chouetteHulotte: false, updatedAt: '2026-08-05T20:00:00Z' }
 }
 
 describe('user-scoped IndexedDB', () => {
