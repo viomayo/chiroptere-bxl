@@ -15,7 +15,7 @@ Application PWA mobile-first pour les relevés de chauves-souris à Bruxelles. E
 - Suppressions hors ligne conservées sous forme de tombstones jusqu'à confirmation Supabase.
 - Vue superviseur avec cache local séparé par compte superviseur.
 - Exports CSV et JSON (avec `user_id`/`user_name`), y compris pour les sessions distantes (vue superviseur). Le CSV est encodé en UTF-8 avec BOM et séparé par des points-virgules pour s'ouvrir correctement dans Excel (colonnes et accents préservés), et inclut la colonne `chouette_hulotte`. L'export GeoJSON n'est pas implémenté.
-- PWA installable, caches HTML/RSC séparés et page de diagnostic `/sw-status`.
+- PWA installable, caches HTML/RSC séparés et page de diagnostic `/sw-status`. Les payloads RSC sont indexés par chemin (la query `pointId`/`sessionId` est lue côté client), donc hors ligne on passe d'un point au suivant sans avoir visité chaque URL à l'avance.
 
 ## Routes
 

@@ -43,14 +43,10 @@ const navigateCache: RuntimeCaching = {
         },
       },
       {
-        handlerDidError: async ({ request }) => {
-          const pn = pathname(request.url)
-          if (pn !== request.url) {
-            const cached = await caches.match(pn)
-            if (cached) return cached
-          }
-          const home = pathname('/')
-          const homeCached = await caches.match(home)
+        // La stratégie cherche déjà le pathname dans pages-navigate
+        // (ignoreSearch) ; il ne reste que le repli vers l'accueil en cache.
+        handlerDidError: async () => {
+          const homeCached = await caches.match(pathname('/'), { cacheName: NAV_CACHE })
           if (homeCached) return homeCached
           return Response.error()
         },
@@ -70,8 +66,23 @@ const rscCache: RuntimeCaching = {
   handler: new NetworkFirst({
     cacheName: RSC_CACHE,
     networkTimeoutSeconds: 3,
+    // Le payload RSC de /compteur et /points ne dépend pas des paramètres de
+    // recherche : pointId/sessionId sont lus côté client (useSearchParams).
+    // Ignorer la query au match permet de naviguer entre points hors ligne
+    // sans avoir visité chaque URL à l'avance.
+    matchOptions: { ignoreSearch: true },
     plugins: [
       new ExpirationPlugin({ maxEntries: 32, maxAgeSeconds: 12 * 60 * 60 }),
+      {
+        // Les écritures sont indexées par pathname : une seule entrée par
+        // route (pas une par point), toujours la plus récente. Les lectures
+        // continuent via matchOptions.ignoreSearch ci-dessus.
+        cacheKeyWillBeUsed: async ({ request, mode }) => {
+          if (mode !== 'write') return request
+          const pn = pathname(request.url)
+          return pn !== request.url ? pn : request
+        },
+      },
       {
         cacheDidUpdate: (param) => {
           const promise = (async () => {
@@ -97,14 +108,12 @@ const rscCache: RuntimeCaching = {
         },
       },
       {
-        handlerDidError: async ({ request }) => {
-          const pn = pathname(request.url)
-          if (pn !== request.url) {
-            const cached = await caches.match(pn)
-            if (cached) return cached
-          }
-          const home = pathname('/')
-          const homeCached = await caches.match(home)
+        // Ne jamais renvoyer de HTML pour une requête RSC : Next.js attend un
+        // payload Flight et lèverait une erreur de parse (écran bloqué). La
+        // stratégie a déjà cherché le pathname dans pages-rsc, il ne reste que
+        // le repli vers l'accueil.
+        handlerDidError: async () => {
+          const homeCached = await caches.match(pathname('/'), { cacheName: RSC_CACHE })
           if (homeCached) return homeCached
           return Response.error()
         },

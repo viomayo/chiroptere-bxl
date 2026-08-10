@@ -6,6 +6,7 @@
 - [fait] Persistance IndexedDB avec sauvegarde automatique et isolation par utilisateur.
 - [fait] Quarantaine attribuable ou exportable pour les anciennes données locales sans propriétaire.
 - [fait] PWA installable, navigation offline, cache des routes avec paramètres et diagnostic `/sw-status`.
+- [fait] Navigation hors ligne de point en point sans pré-visiter chaque URL : cache RSC indexé par pathname (query `pointId`/`sessionId` ignorée, lue côté client) et replis d'erreur scopés par type de cache pour ne jamais servir du HTML en réponse RSC.
 - [fait] Synchronisation atomique de snapshots via RPC Supabase.
 - [fait] Révisions agrégées détectant les modifications de points sans changement des métadonnées de session.
 - [fait] Remplacement distant des observations par une liste éventuellement vide.
