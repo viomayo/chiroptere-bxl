@@ -27,6 +27,7 @@ Application PWA mobile-first pour les relevés de chauves-souris à Bruxelles. E
 - `/points` : points de la session
 - `/compteur` : compteur d'un point
 - `/login` et `/auth/callback` : authentification
+- `/auth/auth-code-error` : page d'erreur si l'échange du code OAuth échoue
 - `/sw-status` : diagnostic PWA
 
 ## Installation
@@ -79,7 +80,7 @@ Le schéma versionné se trouve dans `supabase/migrations/`. Les migrations ajou
 - colonne `chouette_hulotte` sur les points (cri de Chouette hulotte) ;
 - contraintes uniques et seed espèces idempotent.
 
-Les migrations ont été appliquées manuellement au projet distant le 5 août 2026 après sauvegarde logique, dry-run et validation CI. Pour une prochaine migration :
+Les migrations ont été appliquées manuellement au projet distant le 5 août 2026 après sauvegarde logique, dry-run et validation CI. La migration `202608060001_owl_call.sql` (colonne `chouette_hulotte`) reste à appliquer manuellement au projet distant avant le déploiement client. Pour une prochaine migration :
 
 ```bash
 supabase start
