@@ -1,6 +1,18 @@
-import type { PrecacheEntry, SerwistGlobalConfig, RuntimeCaching } from 'serwist'
-import { Serwist, NetworkFirst, StaleWhileRevalidate, ExpirationPlugin } from 'serwist'
-import { defaultCache } from '@serwist/next/worker'
+import type { PrecacheEntry, RuntimeCaching, SerwistGlobalConfig } from 'serwist'
+import { NetworkOnly, Serwist } from 'serwist'
+import {
+  TERRAIN_SHELL_ROUTES,
+  canonicalTerrainShellPath,
+  createOfflineStatus,
+  resolveTerrainShell,
+} from '@/lib/offline/readiness'
+import {
+  SUPABASE_NETWORK_ONLY_METHODS,
+  cleanupLegacyPageCaches,
+  isSameOriginDocumentOrRsc,
+  matchesConfiguredOrigin,
+  strictRulesBeforeFallback,
+} from '@/lib/offline/cache-policy'
 
 declare global {
   interface ServiceWorkerGlobalScope extends SerwistGlobalConfig {
@@ -10,143 +22,106 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope
 
-const RSC_CACHE = 'pages-rsc'
-const NAV_CACHE = 'pages-navigate'
+const manifest = self.__SW_MANIFEST ?? []
 
-function pathname(url: string): string {
-  const u = new URL(url)
-  return u.origin + u.pathname
+function manifestEntryFor(route: string): PrecacheEntry | undefined {
+  return manifest.find((entry): entry is PrecacheEntry => (
+    typeof entry !== 'string' && entry.url === route
+  ))
 }
 
-const navigateCache: RuntimeCaching = {
-  matcher: ({ request, sameOrigin }) => {
-    if (!sameOrigin) return false
-    return request.mode === 'navigate'
-  },
-  handler: new StaleWhileRevalidate({
-    cacheName: NAV_CACHE,
-    matchOptions: { ignoreSearch: true },
-    plugins: [
-      new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 24 * 60 * 60 }),
-      {
-        cacheDidUpdate: (param) => {
-          const pn = pathname(param.request.url)
-          if (pn !== param.request.url) {
-            const promise = (async () => {
-              const cache = await caches.open(NAV_CACHE)
-              if (!(await cache.match(pn))) {
-                await cache.put(pn, param.newResponse.clone())
-              }
-            })()
-            param.event.waitUntil(promise)
-          }
-        },
-      },
-      {
-        // La stratégie cherche déjà le pathname dans pages-navigate
-        // (ignoreSearch) ; il ne reste que le repli vers l'accueil en cache.
-        handlerDidError: async () => {
-          const homeCached = await caches.match(pathname('/'), { cacheName: NAV_CACHE })
-          if (homeCached) return homeCached
-          return Response.error()
-        },
-      },
-    ],
-  }),
+const shellRevisions = TERRAIN_SHELL_ROUTES.map((route) => manifestEntryFor(route)?.revision)
+const shellVersion = shellRevisions.every((revision) => (
+  typeof revision === 'string' && revision === shellRevisions[0]
+)) ? shellRevisions[0] as string : 'invalid'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseOrigin = supabaseUrl ? new URL(supabaseUrl).origin : null
+
+const supabaseNetworkOnly: RuntimeCaching[] = SUPABASE_NETWORK_ONLY_METHODS.map((method) => ({
+  matcher: ({ url }) => matchesConfiguredOrigin(url.origin, supabaseOrigin),
+  method,
+  handler: new NetworkOnly(),
+}))
+
+const terrainNavigation: RuntimeCaching = {
+  matcher: ({ request, sameOrigin, url }) => (
+    sameOrigin &&
+    request.mode === 'navigate' &&
+    canonicalTerrainShellPath(url.href) !== null
+  ),
+  handler: async ({ url }) => (
+    await resolveTerrainShell(url.href, (route) => serwist.matchPrecache(route)) ?? Response.error()
+  ),
 }
 
-const rscCache: RuntimeCaching = {
-  matcher: ({ request, sameOrigin, url }) => {
-    if (!sameOrigin || url.pathname.startsWith('/api/')) return false
-    return (
-      request.headers.get('RSC') === '1' &&
-      request.headers.get('Next-Router-Prefetch') !== '1'
-    )
-  },
-  handler: new NetworkFirst({
-    cacheName: RSC_CACHE,
-    networkTimeoutSeconds: 3,
-    // Le payload RSC de /compteur et /points ne dépend pas des paramètres de
-    // recherche : pointId/sessionId sont lus côté client (useSearchParams).
-    // Ignorer la query au match permet de naviguer entre points hors ligne
-    // sans avoir visité chaque URL à l'avance.
-    matchOptions: { ignoreSearch: true },
-    plugins: [
-      new ExpirationPlugin({ maxEntries: 32, maxAgeSeconds: 12 * 60 * 60 }),
-      {
-        // Les écritures sont indexées par pathname : une seule entrée par
-        // route (pas une par point), toujours la plus récente. Les lectures
-        // continuent via matchOptions.ignoreSearch ci-dessus.
-        cacheKeyWillBeUsed: async ({ request, mode }) => {
-          if (mode !== 'write') return request
-          const pn = pathname(request.url)
-          return pn !== request.url ? pn : request
-        },
-      },
-      {
-        cacheDidUpdate: (param) => {
-          const promise = (async () => {
-            try {
-              const htmlReq = new Request(param.request.url, {
-                headers: {},
-                credentials: 'same-origin',
-              })
-              const htmlRes = await fetch(htmlReq)
-              if (htmlRes.ok && !htmlRes.redirected) {
-                const cache = await caches.open(NAV_CACHE)
-                await cache.put(param.request.url, htmlRes.clone())
-                const pn = pathname(param.request.url)
-                if (pn !== param.request.url && !(await cache.match(pn))) {
-                  await cache.put(pn, htmlRes)
-                }
-              }
-            } catch {
-              /* offline / error, silently skip */
-            }
-          })()
-          param.event.waitUntil(promise)
-        },
-      },
-      {
-        // Ne jamais renvoyer de HTML pour une requête RSC : Next.js attend un
-        // payload Flight et lèverait une erreur de parse (écran bloqué). La
-        // stratégie a déjà cherché le pathname dans pages-rsc, il ne reste que
-        // le repli vers l'accueil.
-        handlerDidError: async () => {
-          const homeCached = await caches.match(pathname('/'), { cacheName: RSC_CACHE })
-          if (homeCached) return homeCached
-          return Response.error()
-        },
-      },
-    ],
-  }),
+const documentAndRscNetworkOnly: RuntimeCaching = {
+  matcher: ({ request, sameOrigin }) => isSameOriginDocumentOrRsc(
+    sameOrigin,
+    request.mode,
+    request.headers.get('RSC'),
+  ),
+  handler: new NetworkOnly(),
+}
+
+const remainingRequestsNetworkOnly: RuntimeCaching = {
+  matcher: /.*/i,
+  method: 'GET',
+  handler: new NetworkOnly(),
 }
 
 const serwist = new Serwist({
-  precacheEntries: self.__SW_MANIFEST,
+  precacheEntries: manifest,
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: false,
-  runtimeCaching: [navigateCache, rscCache, ...defaultCache],
+  runtimeCaching: strictRulesBeforeFallback(
+    [terrainNavigation, ...supabaseNetworkOnly, documentAndRscNetworkOnly],
+    remainingRequestsNetworkOnly,
+  ),
 })
 
-const sw = self as unknown as {
-  addEventListener(event: string, cb: (...args: unknown[]) => void): void
+async function offlineStatus(expectedVersion: string) {
+  const availability = Object.fromEntries(await Promise.all(
+    TERRAIN_SHELL_ROUTES.map(async (route) => [route, Boolean(await serwist.matchPrecache(route))]),
+  ))
+  return createOfflineStatus(expectedVersion, shellVersion, availability)
 }
-sw.addEventListener('install', (event) => {
-  console.log('[SW] install event', event)
+
+type StatusMessageEvent = {
+  data?: { type?: string; expectedVersion?: string }
+  ports: readonly MessagePort[]
+  source?: { postMessage(message: unknown): void } | null
+  waitUntil(promise: Promise<unknown>): void
+}
+
+const serviceWorker = self as unknown as {
+  addEventListener(type: 'message', listener: (event: StatusMessageEvent) => void): void
+}
+
+const serviceWorkerLifecycle = self as unknown as {
+  addEventListener(type: 'activate', listener: (event: { waitUntil(promise: Promise<unknown>): void }) => void): void
+}
+
+serviceWorkerLifecycle.addEventListener('activate', (event) => {
+  event.waitUntil(cleanupLegacyPageCaches(caches))
 })
-sw.addEventListener('activate', (event) => {
-  console.log('[SW] activate event', event)
-})
-sw.addEventListener('message', (event) => {
-  const data = (event as { data?: unknown }).data as
-    | { type: string; [k: string]: unknown }
-    | undefined
-  if (data?.type === 'SW_PING') {
-    const source = (event as { source?: { postMessage: (msg: unknown) => void } }).source
-    source?.postMessage({ type: 'SW_PONG', active: true })
+
+serviceWorker.addEventListener('message', (event) => {
+  if (event.data?.type === 'SW_PING') {
+    const pong = { type: 'SW_PONG', active: true }
+    if (event.ports[0]) event.ports[0].postMessage(pong)
+    else event.source?.postMessage(pong)
+    return
   }
+  if (event.data?.type !== 'OFFLINE_STATUS' && event.data?.type !== 'PREPARE_OFFLINE') return
+
+  const response = offlineStatus(event.data.expectedVersion ?? 'invalid')
+  event.waitUntil(response)
+  void response.then((status) => {
+    if (event.ports[0]) event.ports[0].postMessage(status)
+    else event.source?.postMessage(status)
+  })
 })
 
 serwist.addEventListeners()

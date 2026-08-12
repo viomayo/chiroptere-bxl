@@ -1,11 +1,26 @@
 const DB_NAME = 'chiroptere-bxl'
-const DB_VERSION = 5
+const DB_VERSION = 6
 const STORE_SESSIONS = 'sessions'
 const STORE_POINTS = 'points'
 const STORE_REMOTE_SESSIONS = 'remote_sessions'
 const STORE_REMOTE_POINTS = 'remote_points'
 const STORE_TOMBSTONES = 'tombstones'
+const STORE_OFFLINE_PROFILE = 'offline_profile'
+const ACTIVE_OFFLINE_PROFILE_ID = 'active'
 export const LEGACY_OWNER_ID = '__legacy__'
+
+export interface OfflineProfile {
+  ownerId: string
+  displayName: string
+  avatarUrl: string | null
+  lastVerifiedAt: string
+  preparedVersion: string | null
+  offlineEnabled: boolean
+}
+
+interface StoredOfflineProfile extends OfflineProfile {
+  id: typeof ACTIVE_OFFLINE_PROFILE_ID
+}
 
 export interface SessionData {
   id: string
@@ -117,6 +132,13 @@ export async function resetDatabaseForTests(): Promise<void> {
   })
 }
 
+export async function closeDatabaseForTests(): Promise<void> {
+  if (process.env.NODE_ENV !== 'test') throw new Error('Disponible uniquement dans les tests')
+  const current = await _db?.catch(() => null)
+  current?.close()
+  _db = null
+}
+
 function openDB(): Promise<IDBDatabase> {
   if (!_db) {
     _db = new Promise((resolve, reject) => {
@@ -144,6 +166,9 @@ function openDB(): Promise<IDBDatabase> {
           const tombstones = db.createObjectStore(STORE_TOMBSTONES, { keyPath: 'id' })
           tombstones.createIndex('ownerId', 'ownerId', { unique: false })
         }
+        if (!db.objectStoreNames.contains(STORE_OFFLINE_PROFILE)) {
+          db.createObjectStore(STORE_OFFLINE_PROFILE, { keyPath: 'id' })
+        }
 
         for (const storeName of [STORE_SESSIONS, STORE_POINTS]) {
           const store = tx.objectStore(storeName)
@@ -166,6 +191,114 @@ function openDB(): Promise<IDBDatabase> {
     })
   }
   return _db
+}
+
+function hydrateOfflineProfile(raw: unknown): OfflineProfile | null {
+  if (!raw || typeof raw !== 'object') return null
+  const value = raw as Partial<StoredOfflineProfile>
+  if (
+    value.id !== ACTIVE_OFFLINE_PROFILE_ID ||
+    typeof value.ownerId !== 'string' || !value.ownerId ||
+    typeof value.displayName !== 'string' || !value.displayName ||
+    typeof value.lastVerifiedAt !== 'string' || !value.lastVerifiedAt ||
+    value.offlineEnabled !== true
+  ) return null
+
+  return {
+    ownerId: value.ownerId,
+    displayName: value.displayName,
+    avatarUrl: typeof value.avatarUrl === 'string' ? value.avatarUrl : null,
+    lastVerifiedAt: value.lastVerifiedAt,
+    preparedVersion: typeof value.preparedVersion === 'string' ? value.preparedVersion : null,
+    offlineEnabled: true,
+  }
+}
+
+export async function getOfflineProfile(): Promise<OfflineProfile | null> {
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const request = db.transaction(STORE_OFFLINE_PROFILE).objectStore(STORE_OFFLINE_PROFILE).get(ACTIVE_OFFLINE_PROFILE_ID)
+    request.onsuccess = () => resolve(hydrateOfflineProfile(request.result))
+    request.onerror = () => reject(request.error)
+  })
+}
+
+export async function setOfflineProfile(profile: OfflineProfile): Promise<void> {
+  if (!profile.ownerId || !profile.displayName || !profile.lastVerifiedAt) {
+    throw new Error('Profil offline invalide')
+  }
+  const stored: StoredOfflineProfile = {
+    id: ACTIVE_OFFLINE_PROFILE_ID,
+    ...profile,
+    avatarUrl: profile.avatarUrl || null,
+    preparedVersion: profile.preparedVersion || null,
+    offlineEnabled: true,
+  }
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_OFFLINE_PROFILE, 'readwrite')
+    tx.objectStore(STORE_OFFLINE_PROFILE).put(stored)
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+export async function setOfflinePreparedVersion(ownerId: string, preparedVersion: string): Promise<void> {
+  if (!ownerId || !preparedVersion) throw new Error('Version offline invalide')
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_OFFLINE_PROFILE, 'readwrite')
+    const store = tx.objectStore(STORE_OFFLINE_PROFILE)
+    const request = store.get(ACTIVE_OFFLINE_PROFILE_ID)
+    request.onsuccess = () => {
+      const existing = request.result as StoredOfflineProfile | undefined
+      if (existing?.offlineEnabled === true && existing.ownerId === ownerId) {
+        store.put({ ...existing, preparedVersion })
+      }
+    }
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+export async function disableOfflineProfile(): Promise<void> {
+  const db = await openDB()
+  const existing = await new Promise<StoredOfflineProfile | undefined>((resolve, reject) => {
+    const request = db.transaction(STORE_OFFLINE_PROFILE).objectStore(STORE_OFFLINE_PROFILE).get(ACTIVE_OFFLINE_PROFILE_ID)
+    request.onsuccess = () => resolve(request.result as StoredOfflineProfile | undefined)
+    request.onerror = () => reject(request.error)
+  })
+  if (!existing) return
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_OFFLINE_PROFILE, 'readwrite')
+    tx.objectStore(STORE_OFFLINE_PROFILE).put({ ...existing, offlineEnabled: false })
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+export async function checkIndexedDbAvailability(): Promise<boolean> {
+  try {
+    const db = await openDB()
+    const expectedStores = [
+      STORE_SESSIONS,
+      STORE_POINTS,
+      STORE_REMOTE_SESSIONS,
+      STORE_REMOTE_POINTS,
+      STORE_TOMBSTONES,
+      STORE_OFFLINE_PROFILE,
+    ]
+    if (db.version !== DB_VERSION || expectedStores.some((name) => !db.objectStoreNames.contains(name))) return false
+    await new Promise<void>((resolve, reject) => {
+      const request = db.transaction(STORE_OFFLINE_PROFILE).objectStore(STORE_OFFLINE_PROFILE).count()
+      request.onsuccess = () => resolve()
+      request.onerror = () => reject(request.error)
+    })
+    return true
+  } catch {
+    return false
+  }
 }
 
 function hydrateSpeciesCount(raw: unknown): SpeciesCount {

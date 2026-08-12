@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useOnlineSync } from '@/lib/hooks/use-online-sync'
 import { syncAll, pullMySessions, type SyncResult, type PullResult } from '@/lib/supabase/sync'
 import { RefreshCw } from 'lucide-react'
@@ -11,33 +11,43 @@ export default function SyncButton({ userId }: { userId: string | null }) {
   const [lastResult, setLastResult] = useState<SyncResult | null>(null)
   const [showConflicts, setShowConflicts] = useState(false)
   const [lastPull, setLastPull] = useState<PullResult | null>(null)
+  const syncInFlight = useRef<Promise<void> | null>(null)
 
-  const handleSync = useCallback(async () => {
-    if (!userId || status === 'syncing') return
-    setStatus('syncing')
-    try {
-      const result = await syncAll(userId)
-      let pullErrors = 0
-      setLastResult(result)
-      if (result.conflicts.length > 0) {
-        setShowConflicts(true)
-      } else {
-        const pull = await pullMySessions(userId)
-        pullErrors = pull.errors
-        setLastPull(pull)
-        if (pull.conflicts.length > 0) {
-          setLastResult({ ...result, conflicts: pull.conflicts })
+  const handleSync = useCallback(() => {
+    if (!userId) return Promise.resolve()
+    if (syncInFlight.current) return syncInFlight.current
+
+    const run = (async () => {
+      setStatus('syncing')
+      try {
+        const result = await syncAll(userId)
+        let pullErrors = 0
+        setLastResult(result)
+        if (result.conflicts.length > 0) {
           setShowConflicts(true)
+        } else {
+          const pull = await pullMySessions(userId)
+          pullErrors = pull.errors
+          setLastPull(pull)
+          if (pull.conflicts.length > 0) {
+            setLastResult({ ...result, conflicts: pull.conflicts })
+            setShowConflicts(true)
+          }
+          window.dispatchEvent(new CustomEvent('synced', { detail: pull }))
         }
-        window.dispatchEvent(new CustomEvent('synced', { detail: pull }))
+        setStatus(result.errors + pullErrors > 0 ? 'error' : 'idle')
+      } catch {
+        setStatus('error')
+      } finally {
+        syncInFlight.current = null
       }
-      setStatus(result.errors + pullErrors > 0 ? 'error' : 'idle')
-    } catch {
-      setStatus('error')
-    }
-  }, [userId, status])
+    })()
 
-  useOnlineSync(handleSync)
+    syncInFlight.current = run
+    return run
+  }, [userId])
+
+  useOnlineSync(handleSync, userId !== null)
 
   const nConflicts = lastResult?.conflicts.length ?? 0
 

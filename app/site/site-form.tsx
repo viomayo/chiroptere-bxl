@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Check, MapPin } from 'lucide-react'
 import { saveSession, saveSessionWithPoints, defaultCounts, type SessionData, type PointData } from '@/lib/idb'
 import { SITE_POINTS } from '@/lib/site-points'
+import { useOfflineAuth } from '@/app/components/offline-auth-provider'
 
 const PROTOCOLES = ['Plan d\'eau (2 min)', 'Transect forestier (3 min)'] as const
 
@@ -61,7 +62,13 @@ function nowLocal(): string {
 const inputClass =
   'w-full rounded-lg border border-foreground/10 bg-background px-3 py-2.5 text-base text-foreground focus:outline-none focus:ring-1 focus:ring-foreground/30'
 
-export default function SiteForm({ compteurPrincipal, ownerId }: { compteurPrincipal: string; ownerId: string }) {
+export default function SiteForm() {
+  const { user } = useOfflineAuth()
+  if (!user) return null
+  return <SiteFormForOwner key={user.ownerId} compteurPrincipal={user.displayName} ownerId={user.ownerId} />
+}
+
+function SiteFormForOwner({ compteurPrincipal, ownerId }: { compteurPrincipal: string; ownerId: string }) {
   const router = useRouter()
   const [typeSite, setTypeSite] = useState('')
   const [nomSite, setNomSite] = useState('')

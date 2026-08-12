@@ -20,6 +20,7 @@ import {
 } from '@/lib/idb'
 import { getStoredConflicts, pullAllSessionsForSupervisor, SYNC_STATE_EVENT, type SyncConflict } from '@/lib/supabase/sync'
 import { MapPin, Radio, Plus, ArrowRight, ChevronRight, AlertTriangle, Download, Users, Trash2 } from 'lucide-react'
+import { useOfflineAuth } from './offline-auth-provider'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -91,7 +92,15 @@ function GroupBar({ label, value, total }: { label: string; value: number; total
 
 // ── main ──────────────────────────────────────────────────────────────────────
 
-export default function Dashboard({ name, userId, isSupervisor }: { name: string; userId: string | null; isSupervisor: boolean }) {
+export default function Dashboard() {
+  const { user } = useOfflineAuth()
+  if (!user) return null
+  return <DashboardForOwner key={user.ownerId} name={user.displayName} userId={user.ownerId} />
+}
+
+function DashboardForOwner({ name, userId }: { name: string; userId: string }) {
+  // Les fonctions superviseur restent masquées jusqu'à une validation distante côté client.
+  const isSupervisor = false
   const router = useRouter()
   const firstName = name.split(' ')[0]
 

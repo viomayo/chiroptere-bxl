@@ -1,15 +1,18 @@
 'use client'
 
-import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { useOfflineAuth } from './offline-auth-provider'
 
 export default function LogoutButton() {
   const router = useRouter()
+  const { logout } = useOfflineAuth()
 
   const signOut = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/login')
+    try {
+      await logout()
+    } finally {
+      router.push('/login')
+    }
   }
 
   return (

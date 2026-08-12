@@ -16,6 +16,7 @@ import {
 import { getSiteConfig, type SiteTypeConfig } from '@/lib/site-config'
 import { addTranche, buildTimerState, cloneCounts, countSpecies, fillGroup, removeTranche, toggleSpecies } from '@/lib/counter'
 import { Pause, Play, RotateCcw, Undo2, Eye, EyeOff } from 'lucide-react'
+import { useOfflineAuth } from '@/app/components/offline-auth-provider'
 
 type GroupKey = keyof PointCounts
 
@@ -372,7 +373,13 @@ function GroupCard({
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 
-export default function CompteurScreen({ ownerId }: { ownerId: string }) {
+export default function CompteurScreen() {
+  const { user } = useOfflineAuth()
+  if (!user) return null
+  return <CompteurScreenForOwner key={user.ownerId} ownerId={user.ownerId} />
+}
+
+function CompteurScreenForOwner({ ownerId }: { ownerId: string }) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pointId = searchParams.get('pointId')

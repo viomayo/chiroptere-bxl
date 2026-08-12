@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { getSessions, getSessionById, initSessionPoints, getRemoteSessionById, getRemotePointsBySession, type SessionData, type RemoteSessionData, type PointData, type PointCounts } from '@/lib/idb'
 import { ChevronRight, Download, Eye } from 'lucide-react'
 import { downloadText, sessionToCSV, sessionToJSON } from '@/lib/exports'
+import { useOfflineAuth } from '@/app/components/offline-auth-provider'
 
 type Statut = PointData['statut']
 type GroupKey = keyof PointCounts
@@ -62,7 +63,13 @@ function exportJSON(session: SessionData, points: PointData[], user?: { id?: str
   downloadText(sessionToJSON(session, points, undefined, user), `${session.acronyme}-session.json`, 'application/json')
 }
 
-export default function PointsList({ ownerId }: { ownerId: string }) {
+export default function PointsList() {
+  const { user } = useOfflineAuth()
+  if (!user) return null
+  return <PointsListForOwner key={user.ownerId} ownerId={user.ownerId} />
+}
+
+function PointsListForOwner({ ownerId }: { ownerId: string }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('sessionId')

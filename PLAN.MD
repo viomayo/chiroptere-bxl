@@ -4,10 +4,17 @@
 
 - [fait] Parcours terrain : sessions, points prédéfinis, compteur, timer, espèces, annulation et révision.
 - [fait] Persistance IndexedDB avec sauvegarde automatique et isolation par utilisateur.
+- [fait] Profil d'identité offline actif persistant, remplaçable ou désactivable sans purge des données métier.
+- [fait] Provider client global distinguant identité Supabase vérifiée, profil offline, session expirée et absence d'identité, sans autorisation superviseur locale.
+- [fait] Shells terrain prérendus et consommateurs IndexedDB migrés vers l'identité cliente, avec verrouillage pendant la résolution et au changement de compte.
+- [fait] Proxy retiré du chemin des shells terrain, sans décodage JWT, headers utilisateur ni vérification superviseur ; logout local prioritaire et données métier conservées hors ligne.
 - [fait] Quarantaine attribuable ou exportable pour les anciennes données locales sans propriétaire.
 - [fait] PWA installable, navigation offline, cache des routes avec paramètres et diagnostic `/sw-status`.
-- [fait] Navigation hors ligne de point en point sans pré-visiter chaque URL : cache RSC indexé par pathname (query `pointId`/`sessionId` ignorée, lue côté client) et replis d'erreur scopés par type de cache pour ne jamais servir du HTML en réponse RSC.
+- [fait] Précache Serwist atomique et versionné de `/`, `/site`, `/points` et `/compteur`, avec statut vérifiable, normalisation ciblée des query strings et aucun faux fallback vers l'accueil.
+- [fait] Indicateur utilisateur de readiness distinct de la synchronisation, préparation automatique en ligne, reprise manuelle et `preparedVersion` enregistré seulement après confirmation du Service Worker.
+- [fait] Cache HTTP terrain durci : aucune stratégie runtime HTML/RSC, Supabase prioritaire en `NetworkOnly` et suppression ciblée des anciens caches de pages à l'activation.
 - [fait] Synchronisation atomique de snapshots via RPC Supabase.
+- [fait] Déclencheurs de synchronisation fiabilisés au démarrage en ligne, au retour réseau et au clic manuel, avec déduplication des exécutions concurrentes et revalidation Auth préalable.
 - [fait] Révisions agrégées détectant les modifications de points sans changement des métadonnées de session.
 - [fait] Remplacement distant des observations par une liste éventuellement vide.
 - [fait] Conflits portant sur la session, les points, les groupes, les espèces et les tranches.

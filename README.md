@@ -4,18 +4,21 @@ Application PWA mobile-first pour les relevés de chauves-souris à Bruxelles. E
 
 ## Fonctions disponibles
 
-- Authentification Google avec Supabase Auth et routes protégées par le Proxy Next.js 16.
+- Authentification Google avec Supabase Auth. Les shells terrain sont publics et statiques ; les données locales sont verrouillées par l'identité cliente et les données distantes par Supabase Auth/RLS.
 - Création de sessions et 319 points prédéfinis avec coordonnées et description.
 - Compteur chronométré par tranches, groupes et espèces, avec pause, reprise, MAX (placé sous les boutons −/+ sur mobile pour éviter les clics accidentels), annulation et révision.
 - Case « Cri(s) de Chouette hulotte » par point, sauvegardée localement et synchronisée.
 - Sauvegarde automatique des brouillons dans IndexedDB.
+- Profil d'identité offline actif conservé dans IndexedDB, sans jeton ni droit distant, et désactivable sans supprimer les relevés locaux.
 - Données locales isolées par compte. Les anciennes données sans propriétaire restent en quarantaine jusqu'à attribution explicite ou export JSON.
 - Synchronisation par snapshot atomique : session, points et observations sont écrits dans une transaction Supabase.
+- Synchronisation déclenchée à la confirmation d'une identité en ligne, au retour du réseau ou manuellement, avec un seul push/pull actif à la fois.
 - Révision distante agrégée, conflits sur le snapshot complet et choix explicite entre version locale ou distante.
 - Suppressions hors ligne conservées sous forme de tombstones jusqu'à confirmation Supabase.
-- Vue superviseur avec cache local séparé par compte superviseur.
+- Cache superviseur local séparé par compte ; l'interface superviseur reste désactivée jusqu'à l'ajout d'une validation distante côté client.
 - Exports CSV et JSON (avec `user_id`/`user_name`), y compris pour les sessions distantes (vue superviseur). Le CSV est encodé en UTF-8 avec BOM et séparé par des points-virgules pour s'ouvrir correctement dans Excel (colonnes et accents préservés), et inclut la colonne `chouette_hulotte`. L'export GeoJSON n'est pas implémenté.
-- PWA installable, caches HTML/RSC séparés et page de diagnostic `/sw-status`. Les payloads RSC sont indexés par chemin (la query `pointId`/`sessionId` est lue côté client), donc hors ligne on passe d'un point au suivant sans avoir visité chaque URL à l'avance.
+- PWA installable avec précache Serwist versionné des quatre shells terrain et page de diagnostic `/sw-status`. Une seule ouverture en ligne prépare `/`, `/site`, `/points` et `/compteur` ; les query strings réutilisent le shell canonique sans modifier l'URL visible.
+- Indicateur discret de disponibilité terrain : « Prêt hors ligne » n'apparaît qu'après vérification par le Service Worker de la version et des quatre shells, indépendamment de l'état de synchronisation des relevés.
 
 ## Routes
 
@@ -91,7 +94,19 @@ Ne pas exécuter les deux dernières commandes sans sauvegarde vérifiée et val
 
 ## Sécurité et offline
 
-Le Proxy peut lire un JWT non expiré depuis les cookies pour laisser ouvrir le shell déjà mis en cache hors ligne. Cette lecture ne remplace pas l'autorisation serveur : toute donnée distante et tout droit superviseur restent contrôlés par Supabase Auth et les politiques RLS.
+Le Proxy n'intercepte plus les shells `/`, `/site`, `/points` et `/compteur` : il ne lit plus leurs cookies, n'injecte plus d'identité et n'appelle plus le RPC superviseur. Le callback OAuth reste un flux serveur en ligne. Toute donnée distante reste contrôlée par Supabase Auth et les politiques RLS.
+
+Une couche cliente globale vérifie l'utilisateur avec Supabase puis, si le serveur est injoignable ou la session expirée, expose uniquement l'identité locale active. Les shells `/`, `/site`, `/points` et `/compteur` sont prérendus sans donnée utilisateur ; ils ne lisent IndexedDB qu'après résolution de cette identité. Cette couche ne confère aucun droit distant.
+
+L'installation du Service Worker précache atomiquement ces quatre shells et leurs assets pour la version courante du build. Le protocole `OFFLINE_STATUS` permet de vérifier la version et la présence de chaque route. Les appels vers l'origine Supabase restent strictement réseau et ne sont jamais mis en cache par Serwist.
+
+Les navigations et payloads RSC ne disposent plus de cache runtime : les shells terrain viennent uniquement du précache versionné, et toute autre navigation reste réseau. À l'activation, le Service Worker supprime seulement les anciens caches applicatifs `pages-navigate`, `pages-rsc`, `pages-rsc-prefetch` et `pages`. Une route terrain absente échoue explicitement sans recevoir le document d'une autre route.
+
+Après authentification en ligne, l'interface déclenche automatiquement `PREPARE_OFFLINE`. Une confirmation réussie enregistre aussi la version préparée dans le profil local, uniquement comme métadonnée : le Service Worker reste la source de vérité du statut. En cas d'échec ou de mise à jour incomplète, un bouton « Réessayer » relance la vérification sans toucher aux données métier.
+
+Une déconnexion volontaire verrouille immédiatement l'interface, désactive le profil offline avant de tenter la déconnexion Supabase et conserve les relevés, conflits et suppressions en attente. Une panne réseau ordinaire ne désactive pas le profil offline.
+
+La synchronisation automatique ne démarre qu'après confirmation distante de l'identité. Au retour du réseau, le provider revalide d'abord Supabase ; les états `offline` et `expired` ne déclenchent aucun appel métier distant. Les sessions `dirty`, tombstones, révisions et conflits suivent ensuite exactement le même flux que le bouton Sync.
 
 ## Démo et auteurs
 

@@ -2,15 +2,22 @@
 
 import { useEffect } from 'react'
 
-export function useOnlineSync(onSync: () => void) {
+export function useOnlineSync(onSync: () => void, enabled: boolean) {
   useEffect(() => {
     function handleOnline() {
-      if (navigator.onLine) {
+      if (enabled && navigator.onLine) {
         onSync()
       }
     }
 
     window.addEventListener('online', handleOnline)
-    return () => window.removeEventListener('online', handleOnline)
-  }, [onSync])
+    const startup = enabled && navigator.onLine
+      ? window.setTimeout(handleOnline, 0)
+      : null
+
+    return () => {
+      if (startup !== null) window.clearTimeout(startup)
+      window.removeEventListener('online', handleOnline)
+    }
+  }, [enabled, onSync])
 }
