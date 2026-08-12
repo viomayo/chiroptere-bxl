@@ -85,6 +85,7 @@ export interface PointData {
   timerState: PointTimerState | null
   coordX: number | null
   coordY: number | null
+  chouetteHulotte: boolean
   updatedAt: string
 }
 
@@ -211,6 +212,7 @@ function hydratePoint(raw: Record<string, unknown>): PointData {
     timerState: timerState ?? null,
     coordX: (raw.coordX as number | null) ?? null,
     coordY: (raw.coordY as number | null) ?? null,
+    chouetteHulotte: raw.chouetteHulotte === true,
     updatedAt: (raw.updatedAt as string) ?? new Date().toISOString(),
   }
 }
@@ -363,6 +365,7 @@ export async function initSessionPoints(session: SessionData): Promise<PointData
     timerState: null,
     coordX: null,
     coordY: null,
+    chouetteHulotte: false,
     updatedAt: now,
   }))
 

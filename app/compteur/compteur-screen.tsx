@@ -324,29 +324,31 @@ function GroupCard({
         <span className="text-sm text-foreground/20"> /{nbTranches}</span>
       </div>
 
-      <div className="flex gap-1.5">
-        <button
-          type="button"
-          onClick={onRemove}
-          disabled={!canRemove}
-          className="flex-1 h-10 rounded-lg border text-xl text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer"
-          style={{ borderColor: GROUP_COLORS[groupKey] }}
-        >
-          −
-        </button>
-        <button
-          type="button"
-          onClick={onAdd}
-          disabled={!canAdd}
-          className="flex-1 h-10 rounded-lg text-foreground text-xl font-medium hover:brightness-150 disabled:opacity-25 disabled:cursor-not-allowed transition-all cursor-pointer"
-          style={{ backgroundColor: GROUP_COLORS[groupKey] + '26' }}
-        >
-          +
-        </button>
+      <div className="flex flex-col sm:flex-row gap-1.5">
+        <div className="flex flex-1 gap-1.5">
+          <button
+            type="button"
+            onClick={onRemove}
+            disabled={!canRemove}
+            className="flex-1 h-10 rounded-lg border text-xl text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            style={{ borderColor: GROUP_COLORS[groupKey] }}
+          >
+            −
+          </button>
+          <button
+            type="button"
+            onClick={onAdd}
+            disabled={!canAdd}
+            className="flex-1 h-10 rounded-lg text-foreground text-xl font-medium hover:brightness-150 disabled:opacity-25 disabled:cursor-not-allowed transition-all cursor-pointer"
+            style={{ backgroundColor: GROUP_COLORS[groupKey] + '26' }}
+          >
+            +
+          </button>
+        </div>
         <button
           type="button"
           onClick={onMax}
-          className="px-1.5 h-10 rounded-lg border border-foreground/10 text-[10px] font-medium text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 transition-colors cursor-pointer"
+          className="h-10 rounded-lg border border-foreground/10 text-[10px] font-medium text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 transition-colors cursor-pointer sm:px-1.5"
         >
           MAX
         </button>
@@ -404,6 +406,7 @@ export default function CompteurScreen({ ownerId }: { ownerId: string }) {
   const [counts, setCounts] = useState<PointCounts>(defaultCounts())
   const [localisation, setLocalisation] = useState('')
   const [commentaire, setCommentaire] = useState('')
+  const [chouetteHulotte, setChouetteHulotte] = useState(false)
 
   // Per-group detail tranche (non-null = detail open for that tranche)
   const [detailTranche, setDetailTranche] = useState<Record<GroupKey, number | null>>({
@@ -463,6 +466,7 @@ export default function CompteurScreen({ ownerId }: { ownerId: string }) {
       setCounts(pt.counts)
       setLocalisation(pt.localisation)
       setCommentaire(pt.commentaire)
+      setChouetteHulotte(pt.chouetteHulotte)
       if (pt.timerState) {
         const start = pt.timerState.pointStartTime ? new Date(pt.timerState.pointStartTime) : null
         const trancheStart = pt.timerState.trancheStartTime ? new Date(pt.timerState.trancheStartTime) : null
@@ -517,6 +521,7 @@ export default function CompteurScreen({ ownerId }: { ownerId: string }) {
       counts,
       localisation,
       commentaire,
+      chouetteHulotte,
       nbEspeces: countSpecies(counts),
       timerState,
       updatedAt: new Date().toISOString(),
@@ -533,6 +538,7 @@ export default function CompteurScreen({ ownerId }: { ownerId: string }) {
     counts,
     localisation,
     commentaire,
+    chouetteHulotte,
     started,
     paused,
     finished,
@@ -651,6 +657,7 @@ export default function CompteurScreen({ ownerId }: { ownerId: string }) {
         counts: emptyCounts,
         localisation,
         commentaire: '',
+        chouetteHulotte: false,
         timerState: null,
         updatedAt: new Date().toISOString(),
       }
@@ -658,6 +665,7 @@ export default function CompteurScreen({ ownerId }: { ownerId: string }) {
       setPoint(updated)
       setCounts(emptyCounts)
       setCommentaire('')
+      setChouetteHulotte(false)
     }
     setStarted(false)
     setPaused(false)
@@ -744,6 +752,7 @@ export default function CompteurScreen({ ownerId }: { ownerId: string }) {
       counts,
       localisation,
       commentaire,
+      chouetteHulotte,
       updatedAt: now.toISOString(),
       timerState: buildTimerState({
         started: true,
@@ -995,6 +1004,17 @@ export default function CompteurScreen({ ownerId }: { ownerId: string }) {
           className="w-full rounded-lg border border-foreground/8 bg-background px-3 py-2.5 text-sm text-foreground resize-none focus:outline-none focus:ring-1 focus:ring-foreground/30"
         />
       </div>
+
+      {/* ── Tawny owl call flag ── */}
+      <label className="flex items-center gap-2.5 rounded-xl border border-foreground/8 bg-background px-4 py-3 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={chouetteHulotte}
+          onChange={(e) => setChouetteHulotte(e.target.checked)}
+          className="w-4 h-4 rounded border-foreground/20 accent-foreground"
+        />
+        <span className="text-sm text-foreground/70">Cri(s) de Chouette hulotte</span>
+      </label>
 
       {/* ── Validate ── */}
       <button

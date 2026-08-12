@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { getSessions, getSessionById, initSessionPoints, getRemoteSessionById, getRemotePointsBySession, type SessionData, type PointData, type PointCounts } from '@/lib/idb'
+import { getSessions, getSessionById, initSessionPoints, getRemoteSessionById, getRemotePointsBySession, type SessionData, type RemoteSessionData, type PointData, type PointCounts } from '@/lib/idb'
 import { ChevronRight, Download, Eye } from 'lucide-react'
 import { downloadText, sessionToCSV, sessionToJSON } from '@/lib/exports'
 
@@ -54,12 +54,12 @@ function getGroupTotals(counts: PointCounts): { key: GroupKey; label: string; to
     .filter((g) => g.total > 0)
 }
 
-function exportCSV(session: SessionData, points: PointData[]) {
-  downloadText(sessionToCSV(session, points), `${session.acronyme}-session.csv`, 'text/csv')
+function exportCSV(session: SessionData, points: PointData[], user?: { id?: string | null; name?: string | null }) {
+  downloadText(sessionToCSV(session, points, user), `${session.acronyme}-session.csv`, 'text/csv;charset=utf-8')
 }
 
-function exportJSON(session: SessionData, points: PointData[]) {
-  downloadText(sessionToJSON(session, points), `${session.acronyme}-session.json`, 'application/json')
+function exportJSON(session: SessionData, points: PointData[], user?: { id?: string | null; name?: string | null }) {
+  downloadText(sessionToJSON(session, points, undefined, user), `${session.acronyme}-session.json`, 'application/json')
 }
 
 export default function PointsList({ ownerId }: { ownerId: string }) {
@@ -204,26 +204,24 @@ export default function PointsList({ ownerId }: { ownerId: string }) {
         )
       })}
 
-      {!isRemote && (
-        <div className="flex gap-2 pt-1">
-          <button
-            type="button"
-            onClick={() => exportCSV(session, points)}
-            className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-foreground/10 px-4 py-2.5 text-xs font-medium text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80 transition-colors cursor-pointer"
-          >
-            <Download size={13} />
-            Exporter CSV
-          </button>
-          <button
-            type="button"
-            onClick={() => exportJSON(session, points)}
-            className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-foreground/10 px-4 py-2.5 text-xs font-medium text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80 transition-colors cursor-pointer"
-          >
-            <Download size={13} />
-            Exporter JSON
-          </button>
-        </div>
-      )}
+      <div className="flex gap-2 pt-1">
+        <button
+          type="button"
+          onClick={() => exportCSV(session, points, isRemote ? { id: (session as RemoteSessionData).userId, name: (session as RemoteSessionData).userName } : undefined)}
+          className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-foreground/10 px-4 py-2.5 text-xs font-medium text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80 transition-colors cursor-pointer"
+        >
+          <Download size={13} />
+          Exporter CSV
+        </button>
+        <button
+          type="button"
+          onClick={() => exportJSON(session, points, isRemote ? { id: (session as RemoteSessionData).userId, name: (session as RemoteSessionData).userName } : undefined)}
+          className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-foreground/10 px-4 py-2.5 text-xs font-medium text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80 transition-colors cursor-pointer"
+        >
+          <Download size={13} />
+          Exporter JSON
+        </button>
+      </div>
     </div>
   )
 }

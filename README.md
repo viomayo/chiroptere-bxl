@@ -6,15 +6,16 @@ Application PWA mobile-first pour les relevés de chauves-souris à Bruxelles. E
 
 - Authentification Google avec Supabase Auth et routes protégées par le Proxy Next.js 16.
 - Création de sessions et 319 points prédéfinis avec coordonnées et description.
-- Compteur chronométré par tranches, groupes et espèces, avec pause, reprise, MAX, annulation et révision.
+- Compteur chronométré par tranches, groupes et espèces, avec pause, reprise, MAX (placé sous les boutons −/+ sur mobile pour éviter les clics accidentels), annulation et révision.
+- Case « Cri(s) de Chouette hulotte » par point, sauvegardée localement et synchronisée.
 - Sauvegarde automatique des brouillons dans IndexedDB.
 - Données locales isolées par compte. Les anciennes données sans propriétaire restent en quarantaine jusqu'à attribution explicite ou export JSON.
 - Synchronisation par snapshot atomique : session, points et observations sont écrits dans une transaction Supabase.
 - Révision distante agrégée, conflits sur le snapshot complet et choix explicite entre version locale ou distante.
 - Suppressions hors ligne conservées sous forme de tombstones jusqu'à confirmation Supabase.
 - Vue superviseur avec cache local séparé par compte superviseur.
-- Exports CSV et JSON. L'export GeoJSON n'est pas implémenté.
-- PWA installable, caches HTML/RSC séparés et page de diagnostic `/sw-status`.
+- Exports CSV et JSON (avec `user_id`/`user_name`), y compris pour les sessions distantes (vue superviseur). Le CSV est encodé en UTF-8 avec BOM et séparé par des points-virgules pour s'ouvrir correctement dans Excel (colonnes et accents préservés), et inclut la colonne `chouette_hulotte`. L'export GeoJSON n'est pas implémenté.
+- PWA installable, caches HTML/RSC séparés et page de diagnostic `/sw-status`. Les payloads RSC sont indexés par chemin (la query `pointId`/`sessionId` est lue côté client), donc hors ligne on passe d'un point au suivant sans avoir visité chaque URL à l'avance.
 
 ## Routes
 
@@ -72,6 +73,7 @@ Le schéma versionné se trouve dans `supabase/migrations/`. Les migrations ajou
 - fonction contrôlée `current_user_is_supervisor()` ;
 - révision agrégée des sessions ;
 - RPC transactionnelle `sync_session_snapshot()` ;
+- colonne `chouette_hulotte` sur les points (cri de Chouette hulotte) ;
 - contraintes uniques et seed espèces idempotent.
 
 Les migrations ont été appliquées manuellement au projet distant le 5 août 2026 après sauvegarde logique, dry-run et validation CI. Pour une prochaine migration :
