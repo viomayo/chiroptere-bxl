@@ -33,15 +33,25 @@ export async function completeOAuthExchange(
 ): Promise<{ error: unknown }> {
   if (!codeVerifier) return { error: new Error('pkce_code_verifier_not_found') }
 
-  let response: Response
-  try {
-    response = await fetch('/api/auth/exchange', {
+  const body = JSON.stringify({ code, codeVerifier })
+  const post = () =>
+    fetch('/api/auth/exchange', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, codeVerifier }),
+      body,
     })
-  } catch (error) {
-    return { error }
+
+  let response: Response
+  try {
+    response = await post()
+  } catch {
+    await new Promise((resolve) => setTimeout(resolve, 800))
+    try {
+      response = await post()
+    } catch (retryError) {
+      const reason = retryError instanceof Error ? retryError.message : String(retryError)
+      return { error: new Error(`oauth_network_error: ${reason}`) }
+    }
   }
 
   const payload: unknown = await response.json().catch(() => null)

@@ -112,6 +112,42 @@ describe('completeOAuthExchange', () => {
     expect(setSession).not.toHaveBeenCalled()
   })
 
+  it('retries once on a network failure and reports the network error', async () => {
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new TypeError('NetworkError when attempting to fetch resource.'))
+      .mockRejectedValueOnce(new TypeError('NetworkError when attempting to fetch resource.'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { error } = await completeOAuthExchange('code-123', 'verifier-456')
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(error).toBeInstanceOf(Error)
+    expect(error).toMatchObject({
+      message: 'oauth_network_error: NetworkError when attempting to fetch resource.',
+    })
+    expect(setSession).not.toHaveBeenCalled()
+  })
+
+  it('succeeds when the network retry succeeds', async () => {
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new TypeError('NetworkError when attempting to fetch resource.'))
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          session: { access_token: 'at', refresh_token: 'rt' },
+        }),
+      })
+    vi.stubGlobal('fetch', fetchMock)
+    setSession.mockResolvedValue({ error: null })
+
+    const { error } = await completeOAuthExchange('code-123', 'verifier-456')
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(error).toBeNull()
+    expect(setSession).toHaveBeenCalledWith({ access_token: 'at', refresh_token: 'rt' })
+  })
+
   it('forwards a session persistence failure', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
