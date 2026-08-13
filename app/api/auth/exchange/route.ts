@@ -34,7 +34,12 @@ export async function POST(request: Request) {
   const payload: unknown = await response.json().catch(() => null)
 
   if (!response.ok) {
-    return NextResponse.json({ error: payload ?? 'exchange_failed' }, { status: response.status })
+    const errorPayload = (payload as { error_description?: string; msg?: string } | null) ?? null
+    const description = errorPayload?.error_description ?? errorPayload?.msg ?? 'exchange_failed'
+    return NextResponse.json(
+      { error: 'exchange_failed', description, status: response.status },
+      { status: response.status },
+    )
   }
 
   return NextResponse.json({ session: payload })

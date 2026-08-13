@@ -43,7 +43,10 @@ export async function completeOAuthExchange(
   } | null)?.session
 
   if (!response.ok || !session?.access_token || !session.refresh_token) {
-    return { error: new Error(`oauth_exchange_failed:${response.status}`) }
+    const description = (payload as { description?: string } | null)?.description
+      ?? (payload as { error?: string } | null)?.error
+      ?? 'erreur inconnue'
+    return { error: new Error(`oauth_exchange_failed:${response.status}: ${description}`) }
   }
 
   const { error } = await createClient().auth.setSession({
