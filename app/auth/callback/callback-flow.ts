@@ -17,7 +17,14 @@ export async function destinationAfterCodeExchange(
 
 export function readCodeVerifier(): string | null {
   if (typeof window === 'undefined') return null
-  return window.localStorage.getItem(`${SUPABASE_AUTH_STORAGE_KEY}-code-verifier`)
+  const raw = window.localStorage.getItem(`${SUPABASE_AUTH_STORAGE_KEY}-code-verifier`)
+  if (!raw) return null
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    return typeof parsed === 'string' ? parsed : null
+  } catch {
+    return raw
+  }
 }
 
 export async function completeOAuthExchange(

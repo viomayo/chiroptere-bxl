@@ -43,7 +43,12 @@ describe('errorDestination', () => {
 describe('readCodeVerifier', () => {
   beforeEach(() => window.localStorage.clear())
 
-  it('reads the PKCE verifier from the browser storage', () => {
+  it('reads the PKCE verifier stored by supabase-js as JSON', () => {
+    window.localStorage.setItem('chiroptere-auth-code-verifier', JSON.stringify('secret-verifier'))
+    expect(readCodeVerifier()).toBe('secret-verifier')
+  })
+
+  it('falls back to a legacy raw verifier', () => {
     window.localStorage.setItem('chiroptere-auth-code-verifier', 'secret-verifier')
     expect(readCodeVerifier()).toBe('secret-verifier')
   })
