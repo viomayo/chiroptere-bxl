@@ -3,6 +3,7 @@ import {
   AUTH_ERROR_PATH,
   completeOAuthExchange,
   destinationAfterCodeExchange,
+  errorDestination,
   readCodeVerifier,
 } from './callback-flow'
 
@@ -27,6 +28,15 @@ describe('OAuth callback flow', () => {
     await expect(destinationAfterCodeExchange(null, exchange)).resolves.toBe(AUTH_ERROR_PATH)
     expect(exchange).not.toHaveBeenCalled()
     await expect(destinationAfterCodeExchange('bad-code', exchange)).resolves.toBe(AUTH_ERROR_PATH)
+  })
+})
+
+describe('errorDestination', () => {
+  it('builds an error-page URL with the encoded description', () => {
+    const url = errorDestination('invalid_grant: code already used')
+
+    expect(url.startsWith(`${AUTH_ERROR_PATH}?error=oauth&description=`)).toBe(true)
+    expect(url).toContain(encodeURIComponent('invalid_grant: code already used'))
   })
 })
 

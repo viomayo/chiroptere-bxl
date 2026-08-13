@@ -27,7 +27,7 @@ Application PWA mobile-first pour les relevés de chauves-souris à Bruxelles. E
 - `/points` : points de la session
 - `/compteur` : compteur d'un point
 - `/login` et `/auth/callback` : authentification
-- `/auth/auth-code-error` : page d'erreur si l'échange du code OAuth échoue
+- `/auth/auth-code-error` : page d'erreur si l'échange du code OAuth échoue, affichant la raison renvoyée par Supabase (ou l'erreur d'échange exacte) pour faciliter le diagnostic
 - `/sw-status` : diagnostic PWA
 
 ## Installation
@@ -95,7 +95,7 @@ Ne pas exécuter les deux dernières commandes sans sauvegarde vérifiée et val
 
 ## Sécurité et offline
 
-Le Proxy n'intercepte plus les shells `/`, `/site`, `/points` et `/compteur` : il ne lit plus leurs cookies, n'injecte plus d'identité et n'appelle plus le RPC superviseur. Le callback OAuth reste un flux en ligne, mais l'échange PKCE est effectué dans le navigateur. Le code verifier et la session Supabase utilisent le même stockage local persistant avant le retour sur `/`. Toute donnée distante reste contrôlée par Supabase Auth et les politiques RLS.
+Le Proxy n'intercepte plus les shells `/`, `/site`, `/points` et `/compteur` : il ne lit plus leurs cookies, n'injecte plus d'identité et n'appelle plus le RPC superviseur. Le callback OAuth reste un flux en ligne : le code verifier PKCE est relu dans le stockage local persistant, puis l'échange du code est effectué par la route serveur `/api/auth/exchange` avant que la session Supabase ne soit persistée dans le même stockage local, juste avant le retour sur `/`. Toute donnée distante reste contrôlée par Supabase Auth et les politiques RLS.
 
 Une couche cliente globale vérifie l'utilisateur avec Supabase puis, si le serveur est injoignable ou la session expirée, expose uniquement l'identité locale active. Les shells `/`, `/site`, `/points` et `/compteur` sont prérendus sans donnée utilisateur ; ils ne lisent IndexedDB qu'après résolution de cette identité. Cette couche ne confère aucun droit distant.
 

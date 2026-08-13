@@ -2,6 +2,10 @@ import { createClient, SUPABASE_AUTH_STORAGE_KEY } from '@/lib/supabase/client'
 
 export const AUTH_ERROR_PATH = '/auth/auth-code-error'
 
+export function errorDestination(error: string): string {
+  return `${AUTH_ERROR_PATH}?error=oauth&description=${encodeURIComponent(error.slice(0, 500))}`
+}
+
 export async function destinationAfterCodeExchange(
   code: string | null,
   exchangeCodeForSession: (code: string) => Promise<{ error: unknown }>,

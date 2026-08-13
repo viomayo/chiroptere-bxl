@@ -48,6 +48,25 @@ async function createVersion5DatabaseWithData() {
   })
 }
 
+async function insertLegacyData() {
+  await getSessions('probe')
+  await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open('chiroptere-bxl')
+    request.onsuccess = () => {
+      const db = request.result
+      const tx = db.transaction(['sessions', 'points'], 'readwrite')
+      tx.objectStore('sessions').put(session('__legacy__', 'legacy-1'))
+      tx.objectStore('points').put(point('__legacy__', 'legacy-1'))
+      tx.oncomplete = () => {
+        db.close()
+        resolve()
+      }
+      tx.onerror = () => reject(tx.error)
+    }
+    request.onerror = () => reject(request.error)
+  })
+}
+
 describe('user-scoped IndexedDB', () => {
   beforeEach(() => resetDatabaseForTests())
 
@@ -84,10 +103,48 @@ describe('user-scoped IndexedDB', () => {
     expect(await getTombstones('a')).toHaveLength(1)
   })
 
+  it('deletes the session and its points together', async () => {
+    const value = session('a', '00000000-0000-0000-0000-000000000001')
+    await saveSessionWithPoints(value, [point('a', value.id)])
+    await deleteSession('a', value.id)
+    expect(await getSessions('a')).toEqual([])
+    expect(await getPointsBySession('a', value.id)).toEqual([])
+  })
+
+  it('hydrates species counts and returns points sorted by numero', async () => {
+    const value = session('a', '00000000-0000-0000-0000-000000000001')
+    const counts = defaultCounts()
+    counts.pipistrelles = {
+      total: 1,
+      trancheHistory: [1],
+      species: [{ name: 'Pipistrelle', count: 1, trancheHistory: [1] }],
+    }
+    await saveSessionWithPoints(value, [
+      { ...point('a', value.id), id: 's-z', numero: 1, counts },
+      { ...point('a', value.id), id: 's-a', numero: 2 },
+    ])
+
+    const saved = (await getPointById('a', 's-z'))
+    expect(saved?.counts.pipistrelles.species[0]).toMatchObject({ name: 'Pipistrelle', count: 1, trancheHistory: [1] })
+    expect((await getPointsBySession('a', value.id)).map((p) => p.numero)).toEqual([1, 2])
+  })
+
   it('has no legacy records in a fresh database', async () => {
     expect(await getLegacySessions()).toEqual([])
     await claimLegacyData('a')
     expect(await getSessions('a')).toEqual([])
+  })
+
+  it('claims existing legacy records for the active owner', async () => {
+    await insertLegacyData()
+    expect(await getLegacySessions()).toHaveLength(1)
+
+    await claimLegacyData('a')
+
+    expect(await getLegacySessions()).toEqual([])
+    expect(await getSessions('a')).toHaveLength(1)
+    expect(await getPointsBySession('a', 'legacy-1')).toHaveLength(1)
+    expect((await getSessions('a'))[0]).toMatchObject({ ownerId: 'a', dirty: true })
   })
 
   it('initializes missing points once', async () => {
@@ -117,6 +174,15 @@ describe('user-scoped IndexedDB', () => {
     expect(await getAllRemotePoints('supervisor')).toHaveLength(1)
     await clearRemoteData('supervisor')
     expect(await getRemoteSessions('supervisor')).toEqual([])
+  })
+
+  it('returns remote points sorted by numero', async () => {
+    const value = session('observed', '00000000-0000-0000-0000-000000000001')
+    await saveRemotePoint({ ...point('observed', value.id), id: 'r-z', numero: 1, userId: 'observed', userName: null, cachedBy: 'supervisor' })
+    await saveRemotePoint({ ...point('observed', value.id), id: 'r-a', numero: 2, userId: 'observed', userName: null, cachedBy: 'supervisor' })
+
+    expect((await getRemotePointsBySession('supervisor', value.id)).map((p) => p.numero)).toEqual([1, 2])
+    expect((await getAllRemotePoints('supervisor')).map((p) => p.numero)).toEqual([1, 2])
   })
 
   it('rejects inconsistent owners', async () => {

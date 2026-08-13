@@ -26,6 +26,7 @@
 - [fait] Case « Cri(s) de Chouette hulotte » par point, sauvegardée localement, synchronisée et exportée.
 - [fait] Bouton MAX placé sous les boutons −/+ sur mobile pour éviter les clics accidentels.
 - [fait] Tests unitaires/intégration, scénarios Playwright et CI.
+- [fait] Échange PKCE du code OAuth déplacé vers la route serveur `/api/auth/exchange`, stockage Supabase verrouillé sur la clé `chiroptere-auth`, et page `/auth/auth-code-error` affichant l'erreur exacte renvoyée par Supabase.
 - [fait] Mise à jour vers Next.js 16.3 et audit production sans vulnérabilité connue.
 
 ## Déploiement
@@ -34,6 +35,7 @@
 - [fait] Validation des migrations sur Supabase local dans la CI.
 - [fait] Dry-run examiné puis migrations appliquées manuellement au Supabase distant.
 - [fait] Vérification distante des RPC, RLS, privilèges, advisors et de l'historique des migrations.
+- [à faire] Corriger dans le dashboard Supabase la « Site URL » (redirigée en erreur vers `http://localhost:3000`) et vérifier le secret Google du provider, puis lever l'erreur affichée sur `/auth/auth-code-error` à l'occasion d'un login réel.
 - [à faire] Exécuter une recette réelle sur iOS Safari et Android installés en PWA.
 - [à faire] Appliquer manuellement la migration `202608060001_owl_call.sql` (colonne `chouette_hulotte`) au Supabase distant avant le déploiement client.
 

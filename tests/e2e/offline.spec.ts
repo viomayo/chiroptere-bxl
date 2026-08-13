@@ -1,14 +1,10 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
+import { SUPABASE_AUTH_STORAGE_KEY } from '../../lib/supabase/client'
 
 const USER_ID = '00000000-0000-0000-0000-000000000001'
 const TERRAIN_PATHS = new Set(['/site', '/points', '/compteur'])
 const EXPECTED_SHELL_VERSION = readFileSync('.next/BUILD_ID', 'utf8').trim()
-const SUPABASE_URL = readFileSync('.env', 'utf8').match(/^NEXT_PUBLIC_SUPABASE_URL=(.+)$/m)?.[1]?.trim()
-
-if (!SUPABASE_URL) throw new Error('NEXT_PUBLIC_SUPABASE_URL manque dans .env')
-
-const SUPABASE_STORAGE_KEY = `sb-${new URL(SUPABASE_URL).hostname.split('.')[0]}-auth-token`
 
 test.describe.configure({ mode: 'serial' })
 
@@ -31,8 +27,9 @@ test.beforeEach(async ({ context }) => {
       user_metadata: { full_name: 'Test Terrain' },
     },
   }
-  const cookieValue = `base64-${Buffer.from(JSON.stringify(session)).toString('base64url')}`
-  await context.addCookies([{ name: SUPABASE_STORAGE_KEY, value: cookieValue, domain: '127.0.0.1', path: '/' }])
+  await context.addInitScript(({ storageKey, session }) => {
+    window.localStorage.setItem(storageKey, JSON.stringify(session))
+  }, { storageKey: SUPABASE_AUTH_STORAGE_KEY, session })
   await context.route('**/auth/v1/user', async (route) => {
     await route.fulfill({
       status: 200,
