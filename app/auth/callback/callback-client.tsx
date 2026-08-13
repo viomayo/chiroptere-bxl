@@ -2,8 +2,12 @@
 
 import { useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import { AUTH_ERROR_PATH, destinationAfterCodeExchange } from './callback-flow'
+import {
+  AUTH_ERROR_PATH,
+  completeOAuthExchange,
+  destinationAfterCodeExchange,
+  readCodeVerifier,
+} from './callback-flow'
 
 export default function CallbackClient() {
   const searchParams = useSearchParams()
@@ -13,10 +17,12 @@ export default function CallbackClient() {
     if (started.current) return
     started.current = true
 
-    const supabase = createClient()
+    const code = searchParams.get('code')
+    const codeVerifier = readCodeVerifier()
+
     void destinationAfterCodeExchange(
-      searchParams.get('code'),
-      (code) => supabase.auth.exchangeCodeForSession(code),
+      code,
+      (exchangeCode) => completeOAuthExchange(exchangeCode, codeVerifier),
     ).then((destination) => {
       window.location.replace(destination)
     }).catch(() => {

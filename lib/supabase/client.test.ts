@@ -29,6 +29,7 @@ describe('Supabase browser client', () => {
           persistSession: true,
           autoRefreshToken: true,
           detectSessionInUrl: false,
+          storageKey: 'chiroptere-auth',
           storage: window.localStorage,
         },
       },

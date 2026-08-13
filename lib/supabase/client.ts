@@ -1,5 +1,7 @@
 import { createClient as createSupabaseClient, type SupabaseClient } from '@supabase/supabase-js'
 
+export const SUPABASE_AUTH_STORAGE_KEY = 'chiroptere-auth'
+
 let browserClient: SupabaseClient | null = null
 
 export function createClient() {
@@ -13,6 +15,7 @@ export function createClient() {
           persistSession: true,
           autoRefreshToken: true,
           detectSessionInUrl: false,
+          storageKey: SUPABASE_AUTH_STORAGE_KEY,
           storage: typeof window === 'undefined' ? undefined : window.localStorage,
         },
       },
