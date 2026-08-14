@@ -16,12 +16,13 @@ vi.mock('next/image', () => ({ default: ({ alt }: { alt: string }) => <span role
 
 const identity = { ownerId: 'user-a', displayName: 'Utilisateur A', avatarUrl: null }
 const logout = vi.fn()
+const updateDisplayName = vi.fn()
 
 describe('AppShell identity gate', () => {
   afterEach(cleanup)
 
   it('does not render business content while identity is loading', () => {
-    authState = { status: 'loading', user: null, isOnlineAuthenticated: false, logout }
+    authState = { status: 'loading', user: null, isOnlineAuthenticated: false, logout, updateDisplayName }
     render(<AppShell><p>Données métier sensibles</p></AppShell>)
 
     expect(screen.getByText(/Chargement de l'identité/)).toBeVisible()
@@ -29,7 +30,7 @@ describe('AppShell identity gate', () => {
   })
 
   it('renders local identity and business content offline without enabling sync', () => {
-    authState = { status: 'offline', user: identity, isOnlineAuthenticated: false, logout }
+    authState = { status: 'offline', user: identity, isOnlineAuthenticated: false, logout, updateDisplayName }
     render(<AppShell><p>Données métier A</p></AppShell>)
 
     expect(screen.getByText('Utilisateur A')).toBeVisible()
@@ -39,7 +40,7 @@ describe('AppShell identity gate', () => {
   })
 
   it('keeps local work available with an expired remote session', () => {
-    authState = { status: 'expired', user: identity, isOnlineAuthenticated: false, logout }
+    authState = { status: 'expired', user: identity, isOnlineAuthenticated: false, logout, updateDisplayName }
     render(<AppShell><p>Formulaire local</p></AppShell>)
 
     expect(screen.getByText('Formulaire local')).toBeVisible()
@@ -48,7 +49,7 @@ describe('AppShell identity gate', () => {
   })
 
   it('locks the shell without exposing previous business content when unauthenticated', () => {
-    authState = { status: 'unauthenticated', user: null, isOnlineAuthenticated: false, logout }
+    authState = { status: 'unauthenticated', user: null, isOnlineAuthenticated: false, logout, updateDisplayName }
     render(<AppShell><p>Données métier précédentes</p></AppShell>)
 
     expect(screen.getByText('Application verrouillée.')).toBeVisible()

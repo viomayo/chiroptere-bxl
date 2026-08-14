@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import type { AuthError, User } from '@supabase/supabase-js'
+import type { AuthError, SupabaseClient, User } from '@supabase/supabase-js'
 import { disableOfflineProfile, getOfflineProfile, setOfflineProfile, type OfflineProfile } from '@/lib/idb'
 import { createClient } from '@/lib/supabase/client'
 
@@ -18,9 +18,10 @@ export interface OfflineAuthState {
   user: LocalIdentity | null
   isOnlineAuthenticated: boolean
   logout: () => Promise<void>
+  updateDisplayName: (name: string) => Promise<void>
 }
 
-type OfflineAuthSnapshot = Omit<OfflineAuthState, 'logout'>
+type OfflineAuthSnapshot = Omit<OfflineAuthState, 'logout' | 'updateDisplayName'>
 
 const LOADING_STATE: OfflineAuthSnapshot = {
   status: 'loading',
@@ -47,6 +48,16 @@ function identityFromUser(user: User): LocalIdentity {
     'Utilisateur'
   const avatarUrl = typeof metadata.avatar_url === 'string' ? metadata.avatar_url : null
   return { ownerId: user.id, displayName, avatarUrl }
+}
+
+async function fetchProfileName(supabase: SupabaseClient, userId: string): Promise<string | null> {
+  try {
+    const { data } = await supabase.from('profiles').select('nom').eq('id', userId).maybeSingle()
+    const nom = (data as { nom?: string | null } | null)?.nom?.trim()
+    return nom || null
+  } catch {
+    return null
+  }
 }
 
 function isInvalidSession(error: AuthError | null): boolean {
@@ -76,6 +87,30 @@ export default function OfflineAuthProvider({ children }: { children: React.Reac
     }
   }, [supabase])
 
+  const updateDisplayName = useCallback(async (name: string) => {
+    const trimmed = name.trim()
+    const ownerId = state.user?.ownerId
+    if (!ownerId || !trimmed) return
+    setState((prev) =>
+      prev.user
+        ? { ...prev, user: { ...prev.user, displayName: trimmed } }
+        : prev,
+    )
+    try {
+      await supabase.from('profiles').upsert({ id: ownerId, nom: trimmed })
+    } catch {
+      // Hors ligne : le renommage reste local et sera réappliqué à la prochaine connexion.
+    }
+    const current = await getOfflineProfile().catch(() => null)
+    if (current && current.ownerId === ownerId) {
+      await setOfflineProfile({
+        ...current,
+        displayName: trimmed,
+        lastVerifiedAt: new Date().toISOString(),
+      }).catch(() => undefined)
+    }
+  }, [state.user, supabase])
+
   useEffect(() => {
     let active = true
 
@@ -100,8 +135,10 @@ export default function OfflineAuthProvider({ children }: { children: React.Reac
 
       if (data.user && !error) {
         const identity = identityFromUser(data.user)
+        const profileName = await fetchProfileName(supabase, data.user.id)
+        const resolved = profileName ? { ...identity, displayName: profileName } : identity
         const verifiedProfile: OfflineProfile = {
-          ...identity,
+          ...resolved,
           lastVerifiedAt: new Date().toISOString(),
           preparedVersion: localProfile?.ownerId === identity.ownerId
             ? localProfile.preparedVersion
@@ -115,7 +152,7 @@ export default function OfflineAuthProvider({ children }: { children: React.Reac
           // Readiness will later report that local persistence is unavailable.
         }
         if (!active) return
-        setState({ status: 'online', user: identity, isOnlineAuthenticated: true })
+        setState({ status: 'online', user: resolved, isOnlineAuthenticated: true })
         return
       }
 
@@ -140,7 +177,7 @@ export default function OfflineAuthProvider({ children }: { children: React.Reac
     }
   }, [supabase])
 
-  const contextValue = useMemo(() => ({ ...state, logout }), [logout, state])
+  const contextValue = useMemo(() => ({ ...state, logout, updateDisplayName }), [logout, state, updateDisplayName])
 
   return <OfflineAuthContext.Provider value={contextValue}>{children}</OfflineAuthContext.Provider>
 }

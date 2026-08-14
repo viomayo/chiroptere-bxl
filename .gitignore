@@ -50,3 +50,6 @@ public/sw.js
 public/sw.js.map
 public/workbox-*.js
 public/workbox-*.js.map
+
+# diagnostic script (pre-existing lint errors)
+diag-cdp3.js

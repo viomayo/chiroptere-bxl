@@ -6,6 +6,8 @@ const USER_ID = '00000000-0000-0000-0000-000000000001'
 const TERRAIN_PATHS = new Set(['/site', '/points', '/compteur'])
 const EXPECTED_SHELL_VERSION = readFileSync('.next/BUILD_ID', 'utf8').trim()
 
+let offlineMode = false
+
 test.describe.configure({ mode: 'serial' })
 
 function token() {
@@ -31,6 +33,10 @@ test.beforeEach(async ({ context }) => {
     window.localStorage.setItem(storageKey, JSON.stringify(session))
   }, { storageKey: SUPABASE_AUTH_STORAGE_KEY, session })
   await context.route('**/auth/v1/user', async (route) => {
+    if (offlineMode) {
+      await route.abort('internetdisconnected')
+      return
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -50,6 +56,7 @@ test.beforeEach(async ({ context }) => {
 })
 
 test.afterEach(async ({ context, page }) => {
+  offlineMode = false
   await context.setOffline(false).catch(() => undefined)
   await page.waitForFunction(() => navigator.onLine).catch(() => undefined)
 })
@@ -98,6 +105,7 @@ async function openOnlyHomeWithoutTerrainPrefetch(page: Page, context: BrowserCo
 }
 
 async function goOffline(page: Page, context: BrowserContext) {
+  offlineMode = true
   await context.setOffline(true)
   await expect(page.getByText('Hors ligne — application prête')).toBeVisible()
 }

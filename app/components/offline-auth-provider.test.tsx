@@ -9,10 +9,18 @@ const mocks = vi.hoisted(() => ({
   setOfflineProfile: vi.fn(),
   disableOfflineProfile: vi.fn(),
   signOut: vi.fn(),
+  profileRow: vi.fn(),
+  upsert: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase/client', () => ({
-  createClient: () => ({ auth: { getUser: mocks.getUser, signOut: mocks.signOut } }),
+  createClient: () => ({
+    auth: { getUser: mocks.getUser, signOut: mocks.signOut },
+    from: () => ({
+      select: () => ({ eq: () => ({ maybeSingle: mocks.profileRow }) }),
+      upsert: mocks.upsert,
+    }),
+  }),
 }))
 
 vi.mock('@/lib/idb', () => ({
@@ -47,7 +55,9 @@ function Probe() {
       <span data-testid="status">{auth.status}</span>
       <span data-testid="owner">{auth.user?.ownerId ?? 'none'}</span>
       <span data-testid="online">{String(auth.isOnlineAuthenticated)}</span>
+      <span data-testid="name">{auth.user?.displayName ?? 'none'}</span>
       <button onClick={() => void auth.logout()}>Déconnexion test</button>
+      <button onClick={() => void auth.updateDisplayName('Nouveau Nom')}>Renommer test</button>
     </div>
   )
 }
@@ -65,6 +75,8 @@ describe('OfflineAuthProvider', () => {
     mocks.setOfflineProfile.mockResolvedValue(undefined)
     mocks.disableOfflineProfile.mockResolvedValue(undefined)
     mocks.signOut.mockResolvedValue({ error: null })
+    mocks.profileRow.mockResolvedValue({ data: null, error: null })
+    mocks.upsert.mockResolvedValue({ data: null, error: null })
   })
 
   it('starts without exposing an owner while identity resolution is pending', async () => {
@@ -167,6 +179,48 @@ describe('OfflineAuthProvider', () => {
     await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('online'))
     expect(screen.getByTestId('owner')).toHaveTextContent('user-b')
     expect(screen.getByTestId('online')).toHaveTextContent('true')
+  })
+
+  it('prefers the controlled profile name over identity metadata', async () => {
+    mocks.getOfflineProfile.mockResolvedValue(profile())
+    mocks.getUser.mockResolvedValue({ data: { user: remoteUser() }, error: null })
+    mocks.profileRow.mockResolvedValue({ data: { nom: '  Violette Mayaux  ' }, error: null })
+
+    renderProvider()
+
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('online'))
+    expect(screen.getByTestId('name')).toHaveTextContent('Violette Mayaux')
+    expect(mocks.setOfflineProfile).toHaveBeenCalledWith(expect.objectContaining({
+      ownerId: 'user-a',
+      displayName: 'Violette Mayaux',
+      preparedVersion: 'shell-v1',
+    }))
+  })
+
+  it('renames the controlled profile and refreshes the local identity', async () => {
+    mocks.getOfflineProfile.mockResolvedValue(profile())
+    mocks.getUser.mockResolvedValue({ data: { user: remoteUser() }, error: null })
+
+    renderProvider()
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('online'))
+    fireEvent.click(screen.getByRole('button', { name: 'Renommer test' }))
+
+    expect(screen.getByTestId('name')).toHaveTextContent('Nouveau Nom')
+    await waitFor(() => expect(mocks.upsert).toHaveBeenCalledWith({ id: 'user-a', nom: 'Nouveau Nom' }))
+    expect(mocks.setOfflineProfile).toHaveBeenCalledWith(expect.objectContaining({ displayName: 'Nouveau Nom' }))
+  })
+
+  it('persists the local rename when the remote upsert fails', async () => {
+    mocks.getOfflineProfile.mockResolvedValue(profile())
+    mocks.getUser.mockResolvedValue({ data: { user: remoteUser() }, error: null })
+    mocks.upsert.mockResolvedValue({ data: null, error: { message: 'offline' } })
+
+    renderProvider()
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('online'))
+    fireEvent.click(screen.getByRole('button', { name: 'Renommer test' }))
+
+    expect(screen.getByTestId('name')).toHaveTextContent('Nouveau Nom')
+    await waitFor(() => expect(mocks.setOfflineProfile).toHaveBeenCalledWith(expect.objectContaining({ displayName: 'Nouveau Nom' })))
   })
 
   it('locks the local profile before completing an online logout', async () => {

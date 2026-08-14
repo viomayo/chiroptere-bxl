@@ -19,7 +19,7 @@ import {
   type RemotePointData,
 } from '@/lib/idb'
 import { getStoredConflicts, pullAllSessionsForSupervisor, SYNC_STATE_EVENT, type SyncConflict } from '@/lib/supabase/sync'
-import { MapPin, Radio, Plus, ArrowRight, ChevronRight, AlertTriangle, Download, Users, Trash2 } from 'lucide-react'
+import { MapPin, Radio, Plus, ArrowRight, ChevronRight, AlertTriangle, Download, Users, Trash2, Pencil, Check, X } from 'lucide-react'
 import { useOfflineAuth } from './offline-auth-provider'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -93,12 +93,20 @@ function GroupBar({ label, value, total }: { label: string; value: number; total
 // ── main ──────────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
-  const { user } = useOfflineAuth()
+  const { user, isOnlineAuthenticated, updateDisplayName } = useOfflineAuth()
   if (!user) return null
-  return <DashboardForOwner key={user.ownerId} name={user.displayName} userId={user.ownerId} />
+  return (
+    <DashboardForOwner
+      key={user.ownerId}
+      name={user.displayName}
+      userId={user.ownerId}
+      online={isOnlineAuthenticated}
+      onRename={updateDisplayName}
+    />
+  )
 }
 
-function DashboardForOwner({ name, userId }: { name: string; userId: string }) {
+function DashboardForOwner({ name, userId, online, onRename }: { name: string; userId: string; online: boolean; onRename: (name: string) => Promise<void> }) {
   // Les fonctions superviseur restent masquées jusqu'à une validation distante côté client.
   const isSupervisor = false
   const router = useRouter()
@@ -114,6 +122,8 @@ function DashboardForOwner({ name, userId }: { name: string; userId: string }) {
   const [pullError, setPullError] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [legacyCount, setLegacyCount] = useState(0)
+  const [editingName, setEditingName] = useState(false)
+  const [draftName, setDraftName] = useState('')
 
   async function handleExportLegacy() {
     const [legacySessions, legacyPoints] = await Promise.all([getLegacySessions(), getAllPoints(LEGACY_OWNER_ID)])
@@ -151,6 +161,14 @@ function DashboardForOwner({ name, userId }: { name: string; userId: string }) {
     await claimLegacyData(userId)
     setLegacyCount(0)
     await loadData()
+  }
+
+  async function handleRenameSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const trimmed = draftName.trim()
+    if (!trimmed) return
+    setEditingName(false)
+    await onRename(trimmed)
   }
 
   useEffect(() => {
@@ -274,9 +292,44 @@ function DashboardForOwner({ name, userId }: { name: string; userId: string }) {
       )}
 
       {/* Greeting */}
-      <div>
-        <h1 className="text-lg font-semibold tracking-tight">{getGreeting(firstName)}</h1>
-        <p className="text-xs text-foreground/35 capitalize mt-0.5">{formatLongDate()}</p>
+      <div className="flex flex-col gap-0.5">
+        <div className="flex items-center gap-2">
+          {editingName ? (
+            <form onSubmit={handleRenameSubmit} className="flex items-center gap-2">
+              <input
+                type="text"
+                value={draftName}
+                onChange={(e) => setDraftName(e.target.value)}
+                maxLength={80}
+                autoFocus
+                className="text-sm font-semibold rounded-lg border border-foreground/15 bg-background px-2.5 py-1 w-56 sm:w-72 focus:outline-none focus:border-foreground/40"
+                aria-label="Nouveau nom affiché"
+              />
+              <button type="submit" className="p-1 rounded-md hover:bg-foreground/6 text-foreground/50 hover:text-foreground transition-colors" title="Enregistrer le nom" aria-label="Enregistrer le nom">
+                <Check size={14} />
+              </button>
+              <button type="button" onClick={() => setEditingName(false)} className="p-1 rounded-md hover:bg-foreground/6 text-foreground/50 hover:text-foreground transition-colors" title="Annuler" aria-label="Annuler le renommage">
+                <X size={14} />
+              </button>
+            </form>
+          ) : (
+            <>
+              <h1 className="text-lg font-semibold tracking-tight">{getGreeting(firstName)}</h1>
+              {online && (
+                <button
+                  type="button"
+                  onClick={() => { setDraftName(name); setEditingName(true) }}
+                  className="p-1 rounded-md hover:bg-foreground/6 text-foreground/30 hover:text-foreground/70 transition-colors"
+                  title="Modifier mon nom"
+                  aria-label="Modifier mon nom"
+                >
+                  <Pencil size={12} />
+                </button>
+              )}
+            </>
+          )}
+        </div>
+        <p className="text-xs text-foreground/35 capitalize">{formatLongDate()}</p>
       </div>
 
       {/* Empty state */}
@@ -506,8 +559,11 @@ function DashboardForOwner({ name, userId }: { name: string; userId: string }) {
                       </span>
                     </div>
                     <div className="flex items-center gap-2.5 text-xs text-foreground/40">
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-foreground/8 text-foreground/45 font-medium uppercase tracking-wider">
-                        {s.userId.substring(0, 8)}
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-foreground/8 text-foreground/45 font-medium uppercase tracking-wider truncate max-w-[10rem]"
+                        title={s.userName ?? s.userId}
+                      >
+                        {s.userName ?? s.userId.substring(0, 8)}
                       </span>
                       <span className="flex items-center gap-1">
                         <MapPin size={10} className="shrink-0" />

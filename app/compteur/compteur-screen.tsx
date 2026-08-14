@@ -314,10 +314,18 @@ function GroupCard({
 }) {
   return (
     <div className="rounded-xl border border-foreground/8 bg-background p-3 flex flex-col gap-2.5">
-      <div className="flex items-center justify-between min-h-4.5">
+      <div className="flex items-center justify-between gap-2 min-h-4.5">
         <span className="text-base font-bold" style={{ color: GROUP_COLORS[groupKey], fontVariant: 'small-caps' }}>
           {GROUP_LABELS[groupKey]}
         </span>
+        <button
+          type="button"
+          onClick={onMax}
+          title="Remplir toutes les tranches"
+          className="shrink-0 w-7 h-7 rounded-full border border-foreground/10 text-[9px] font-medium text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 transition-colors cursor-pointer"
+        >
+          MAX
+        </button>
       </div>
 
       <div className="text-center leading-none select-none">
@@ -325,33 +333,24 @@ function GroupCard({
         <span className="text-sm text-foreground/20"> /{nbTranches}</span>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-1.5">
-        <div className="flex flex-1 gap-1.5">
-          <button
-            type="button"
-            onClick={onRemove}
-            disabled={!canRemove}
-            className="flex-1 h-10 rounded-lg border text-xl text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer"
-            style={{ borderColor: GROUP_COLORS[groupKey] }}
-          >
-            −
-          </button>
-          <button
-            type="button"
-            onClick={onAdd}
-            disabled={!canAdd}
-            className="flex-1 h-10 rounded-lg text-foreground text-xl font-medium hover:brightness-150 disabled:opacity-25 disabled:cursor-not-allowed transition-all cursor-pointer"
-            style={{ backgroundColor: GROUP_COLORS[groupKey] + '26' }}
-          >
-            +
-          </button>
-        </div>
+      <div className="flex flex-1 gap-1.5">
         <button
           type="button"
-          onClick={onMax}
-          className="h-10 rounded-lg border border-foreground/10 text-[10px] font-medium text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 transition-colors cursor-pointer sm:px-1.5"
+          onClick={onRemove}
+          disabled={!canRemove}
+          className="flex-1 h-10 rounded-lg border text-xl text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer"
+          style={{ borderColor: GROUP_COLORS[groupKey] }}
         >
-          MAX
+          −
+        </button>
+        <button
+          type="button"
+          onClick={onAdd}
+          disabled={!canAdd}
+          className="flex-1 h-10 rounded-lg text-foreground text-xl font-medium hover:brightness-150 disabled:opacity-25 disabled:cursor-not-allowed transition-all cursor-pointer"
+          style={{ backgroundColor: GROUP_COLORS[groupKey] + '26' }}
+        >
+          +
         </button>
       </div>
 

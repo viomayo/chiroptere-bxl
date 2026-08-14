@@ -51,7 +51,7 @@ export default function AppShell({ children }: AppShellProps) {
               unoptimized
               className="rounded-lg"
             />
-            <span className="text-sm font-medium">Chiroptère BXL</span>
+            <span className="text-sm font-medium hidden sm:inline">Chiroptère BXL</span>
           </Link>
 
           <div className="flex items-center gap-2">

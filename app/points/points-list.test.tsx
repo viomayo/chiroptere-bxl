@@ -6,6 +6,7 @@ import type { PointData, SessionData } from '@/lib/idb'
 
 let authState: OfflineAuthState
 const logout = vi.fn()
+const updateDisplayName = vi.fn()
 
 const mocks = vi.hoisted(() => ({
   getSessions: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock('@/lib/exports', () => ({
   downloadText: vi.fn(),
   sessionToCSV: vi.fn(),
   sessionToJSON: vi.fn(),
+  sessionToGeoJSON: vi.fn(),
 }))
 
 const emptyGroup = { total: 0, trancheHistory: [], species: [] }
@@ -92,6 +94,7 @@ describe('PointsList identity isolation', () => {
       user: { ownerId: 'a', displayName: 'Utilisateur A', avatarUrl: null },
       isOnlineAuthenticated: false,
       logout,
+      updateDisplayName,
     }
     const view = render(<PointsList />)
 
@@ -103,6 +106,7 @@ describe('PointsList identity isolation', () => {
       user: { ownerId: 'b', displayName: 'Utilisateur B', avatarUrl: null },
       isOnlineAuthenticated: false,
       logout,
+      updateDisplayName,
     }
     view.rerender(<PointsList />)
 

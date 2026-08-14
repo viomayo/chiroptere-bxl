@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getSessions, getSessionById, initSessionPoints, getRemoteSessionById, getRemotePointsBySession, type SessionData, type RemoteSessionData, type PointData, type PointCounts } from '@/lib/idb'
 import { ChevronRight, Download, Eye } from 'lucide-react'
-import { downloadText, sessionToCSV, sessionToJSON } from '@/lib/exports'
+import { downloadText, sessionToCSV, sessionToGeoJSON, sessionToJSON } from '@/lib/exports'
 import { useOfflineAuth } from '@/app/components/offline-auth-provider'
 
 type Statut = PointData['statut']
@@ -61,6 +61,10 @@ function exportCSV(session: SessionData, points: PointData[], user?: { id?: stri
 
 function exportJSON(session: SessionData, points: PointData[], user?: { id?: string | null; name?: string | null }) {
   downloadText(sessionToJSON(session, points, undefined, user), `${session.acronyme}-session.json`, 'application/json')
+}
+
+function exportGeoJSON(session: SessionData, points: PointData[], user?: { id?: string | null; name?: string | null }) {
+  downloadText(sessionToGeoJSON(session, points, undefined, user), `${session.acronyme}-session.geojson`, 'application/geo+json')
 }
 
 export default function PointsList() {
@@ -211,11 +215,11 @@ function PointsListForOwner({ ownerId }: { ownerId: string }) {
         )
       })}
 
-      <div className="flex gap-2 pt-1">
+      <div className="flex flex-wrap gap-2 pt-1">
         <button
           type="button"
           onClick={() => exportCSV(session, points, isRemote ? { id: (session as RemoteSessionData).userId, name: (session as RemoteSessionData).userName } : undefined)}
-          className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-foreground/10 px-4 py-2.5 text-xs font-medium text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80 transition-colors cursor-pointer"
+          className="flex-1 min-w-[6rem] flex items-center justify-center gap-2 rounded-lg border border-foreground/10 px-4 py-2.5 text-xs font-medium text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80 transition-colors cursor-pointer"
         >
           <Download size={13} />
           Exporter CSV
@@ -223,10 +227,18 @@ function PointsListForOwner({ ownerId }: { ownerId: string }) {
         <button
           type="button"
           onClick={() => exportJSON(session, points, isRemote ? { id: (session as RemoteSessionData).userId, name: (session as RemoteSessionData).userName } : undefined)}
-          className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-foreground/10 px-4 py-2.5 text-xs font-medium text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80 transition-colors cursor-pointer"
+          className="flex-1 min-w-[6rem] flex items-center justify-center gap-2 rounded-lg border border-foreground/10 px-4 py-2.5 text-xs font-medium text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80 transition-colors cursor-pointer"
         >
           <Download size={13} />
           Exporter JSON
+        </button>
+        <button
+          type="button"
+          onClick={() => exportGeoJSON(session, points, isRemote ? { id: (session as RemoteSessionData).userId, name: (session as RemoteSessionData).userName } : undefined)}
+          className="flex-1 min-w-[6rem] flex items-center justify-center gap-2 rounded-lg border border-foreground/10 px-4 py-2.5 text-xs font-medium text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80 transition-colors cursor-pointer"
+        >
+          <Download size={13} />
+          Exporter GeoJSON
         </button>
       </div>
     </div>

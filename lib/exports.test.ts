@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { csvCell, downloadText, sessionToCSV, sessionToJSON } from './exports'
+import { csvCell, downloadText, sessionToCSV, sessionToGeoJSON, sessionToJSON } from './exports'
 import { defaultCounts, type PointData, type SessionData } from './idb'
 
 const session: SessionData = { id: '00000000-0000-0000-0000-000000000001', ownerId: 'user-a', typeSite: 'Étang', nomSite: 'Bois, test', acronyme: 'BT', debutSession: '2026-08-05T20:00:00Z', finSession: '', compteurPrincipal: 'Alice', autresCompteurs: '', nbPointsEcoute: 1, detecteurs: ['D1'], commentaire: '', createdAt: '2026-08-05T20:00:00Z', updatedAt: '2026-08-05T20:00:00Z', syncedAt: null, dirty: true, lastSyncedRemoteRevision: null, syncError: null }
@@ -71,6 +71,39 @@ describe('exports', () => {
   it('adds the user to the JSON export', () => {
     const json = JSON.parse(sessionToJSON(session, [point], 'now', { id: 'user-a', name: 'Alice' }))
     expect(json.user).toEqual({ id: 'user-a', name: 'Alice' })
+  })
+  it('exports a GeoJSON FeatureCollection in Lambert 72 with raw coordinates', () => {
+    const geojson = JSON.parse(sessionToGeoJSON(session, [pointWithSpecies()], 'now', { id: 'user-a', name: 'Alice' }))
+    expect(geojson.type).toBe('FeatureCollection')
+    expect(geojson.name).toBe('BT-session')
+    expect(geojson.crs).toEqual({ type: 'name', properties: { name: 'EPSG:31370' } })
+    expect(geojson.features).toHaveLength(1)
+    const feature = geojson.features[0]
+    expect(feature.type).toBe('Feature')
+    expect(feature.id).toBe('BT-01')
+    expect(feature.geometry).toEqual({ type: 'Point', coordinates: [1, 2] })
+    expect(feature.properties).toMatchObject({
+      exportedAt: 'now',
+      user: { id: 'user-a', name: 'Alice' },
+      session_id: session.id,
+      point: 'BT-01',
+      chouette_hulotte: false,
+    })
+  })
+  it('embeds group counts in the GeoJSON properties', () => {
+    const geojson = JSON.parse(sessionToGeoJSON(session, [pointWithSpecies()], 'now'))
+    expect(geojson.features[0].properties.groupes).toEqual({
+      pipistrelles: { total: 4, tranches: [1, 2, 3, 4], especes: [{ nom: 'Pipistrelle commune', count: 3, tranches: [1, 2, 3] }] },
+    })
+  })
+  it('emits null geometry for points without coordinates', () => {
+    const geojson = JSON.parse(sessionToGeoJSON(session, [{ ...point, coordX: null, coordY: null }]))
+    expect(geojson.features[0].geometry).toBeNull()
+    expect(geojson.features[0].properties.coord_x).toBeNull()
+  })
+  it('excludes empty groups from the GeoJSON properties', () => {
+    const geojson = JSON.parse(sessionToGeoJSON(session, [point]))
+    expect(geojson.features[0].properties.groupes).toEqual({})
   })
   it('downloads generated text', () => {
     const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test')

@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { LogOut } from 'lucide-react'
 import { useOfflineAuth } from './offline-auth-provider'
 
 export default function LogoutButton() {
@@ -18,9 +19,11 @@ export default function LogoutButton() {
   return (
     <button
       onClick={signOut}
-      className="text-sm text-foreground/50 hover:text-foreground transition-colors cursor-pointer"
+      title="Se déconnecter"
+      className="flex items-center gap-1.5 text-sm text-foreground/50 hover:text-foreground transition-colors cursor-pointer"
     >
-      Se déconnecter
+      <LogOut size={15} className="shrink-0" />
+      <span className="hidden sm:inline">Se déconnecter</span>
     </button>
   )
 }

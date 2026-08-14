@@ -73,30 +73,54 @@ export default function OfflineStatusIndicator() {
     return (
       <StatusChip
         label={isOnline ? 'En ligne — Prêt hors ligne' : 'Hors ligne — application prête'}
+        shortLabel={isOnline ? 'En ligne' : 'Hors ligne'}
         ready
       />
     )
   }
 
   return (
-    <div className="flex items-center gap-1.5 rounded-full border border-amber-500/25 px-2 py-1 text-[11px] text-amber-700 dark:text-amber-300">
-      <span>{display === 'update' ? 'Mise à jour de l’application requise' : 'Mode hors ligne incomplet'}</span>
-      <button type="button" onClick={() => void check()} className="font-medium underline underline-offset-2 cursor-pointer">
+    <StatusChip
+      label={display === 'update' ? 'Mise à jour de l’application requise' : 'Mode hors ligne incomplet'}
+      shortLabel={display === 'update' ? 'Mise à jour' : 'Incomplet'}
+      accent
+    >
+      <button type="button" onClick={() => void check()} className="font-medium underline underline-offset-2 cursor-pointer whitespace-nowrap">
         Réessayer
       </button>
-    </div>
+    </StatusChip>
   )
 }
 
-function StatusChip({ label, ready = false }: { label: string; ready?: boolean }) {
+function StatusChip({
+  label,
+  shortLabel,
+  ready = false,
+  accent = false,
+  children,
+}: {
+  label: string
+  shortLabel?: string
+  ready?: boolean
+  accent?: boolean
+  children?: React.ReactNode
+}) {
   return (
-    <div className={`flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] ${
-      ready
-        ? 'border-emerald-500/25 text-emerald-700 dark:text-emerald-300'
-        : 'border-foreground/10 text-foreground/45'
-    }`}>
-      <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${ready ? 'bg-emerald-500' : 'bg-foreground/25'}`} />
-      <span>{label}</span>
+    <div
+      className={`flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] whitespace-nowrap ${
+        accent
+          ? 'border-amber-500/25 text-amber-700 dark:text-amber-300'
+          : ready
+            ? 'border-emerald-500/25 text-emerald-700 dark:text-emerald-300'
+            : 'border-foreground/10 text-foreground/45'
+      }`}
+      title={label}
+      aria-label={label}
+    >
+      <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full shrink-0 ${accent ? 'bg-amber-500' : ready ? 'bg-emerald-500' : 'bg-foreground/25'}`} />
+      {shortLabel && <span className="sm:hidden">{shortLabel}</span>}
+      <span className="hidden sm:inline">{label}</span>
+      {children}
     </div>
   )
 }

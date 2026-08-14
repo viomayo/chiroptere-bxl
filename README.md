@@ -6,7 +6,7 @@ Application PWA mobile-first pour les relevés de chauves-souris à Bruxelles. E
 
 - Authentification Google avec Supabase Auth. Les shells terrain sont publics et statiques ; les données locales sont verrouillées par l'identité cliente et les données distantes par Supabase Auth/RLS.
 - Création de sessions et 319 points prédéfinis avec coordonnées et description.
-- Compteur chronométré par tranches, groupes et espèces, avec pause, reprise, MAX (placé sous les boutons −/+ sur mobile pour éviter les clics accidentels), annulation et révision.
+- Compteur chronométré par tranches, groupes et espèces, avec pause, reprise, MAX (petit bouton rond à droite du nom de chaque groupe), annulation et révision.
 - Case « Cri(s) de Chouette hulotte » par point, sauvegardée localement et synchronisée.
 - Sauvegarde automatique des brouillons dans IndexedDB.
 - Profil d'identité offline actif conservé dans IndexedDB, sans jeton ni droit distant, et désactivable sans supprimer les relevés locaux.
@@ -16,7 +16,8 @@ Application PWA mobile-first pour les relevés de chauves-souris à Bruxelles. E
 - Révision distante agrégée, conflits sur le snapshot complet et choix explicite entre version locale ou distante.
 - Suppressions hors ligne conservées sous forme de tombstones jusqu'à confirmation Supabase.
 - Cache superviseur local séparé par compte ; l'interface superviseur reste désactivée jusqu'à l'ajout d'une validation distante côté client.
-- Exports CSV et JSON (avec `user_id`/`user_name`), y compris pour les sessions distantes (vue superviseur). Le CSV est encodé en UTF-8 avec BOM et séparé par des points-virgules pour s'ouvrir correctement dans Excel (colonnes et accents préservés), et inclut la colonne `chouette_hulotte`. L'export GeoJSON n'est pas implémenté.
+- Profil utilisateur contrôlé : table `profiles` préremplie au premier sign-in (nom Google), renommable depuis le tableau de bord en ligne, et noms affichés dans la vue superviseur à la place de l'identifiant tronqué.
+- Exports CSV et JSON (avec `user_id`/`user_name`), y compris pour les sessions distantes (vue superviseur). Le CSV est encodé en UTF-8 avec BOM et séparé par des points-virgules pour s'ouvrir correctement dans Excel (colonnes et accents préservés), et inclut la colonne `chouette_hulotte`. Export GeoJSON d'une FeatureCollection déclarant la CRS Lambert 72 (`EPSG:31370`) avec les coordonnées brutes des points ; les points sans coordonnées sont conservés avec `geometry: null`.
 - PWA installable avec précache Serwist versionné des quatre shells terrain et page de diagnostic `/sw-status`. Une seule ouverture en ligne prépare `/`, `/site`, `/points` et `/compteur` ; les query strings réutilisent le shell canonique sans modifier l'URL visible.
 - Indicateur discret de disponibilité terrain : « Prêt hors ligne » n'apparaît qu'après vérification par le Service Worker de la version et des quatre shells, indépendamment de l'état de synchronisation des relevés.
 
@@ -78,9 +79,10 @@ Le schéma versionné se trouve dans `supabase/migrations/`. Les migrations ajou
 - révision agrégée des sessions ;
 - RPC transactionnelle `sync_session_snapshot()` ;
 - colonne `chouette_hulotte` sur les points (cri de Chouette hulotte) ;
+- table `profiles` (nom contrôlé de l'utilisateur, prérempli au premier sign-in, modifiable par son propriétaire et lisible par les superviseurs) ;
 - contraintes uniques et seed espèces idempotent.
 
-Les migrations ont été appliquées manuellement au projet distant le 5 août 2026 après sauvegarde logique, dry-run et validation CI. La migration `202608060001_owl_call.sql` (colonne `chouette_hulotte`) reste à appliquer manuellement au projet distant avant le déploiement client. Pour une prochaine migration :
+Toutes les migrations ont été appliquées manuellement au projet distant (dernière application le 14 août 2026 : `202608060001_owl_call.sql` et `202608140001_profiles.sql`, après `supabase link`, dry-run et vérification du schéma distant). Pour une prochaine migration :
 
 ```bash
 supabase start

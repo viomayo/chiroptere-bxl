@@ -39,7 +39,7 @@ describe('OfflineStatusIndicator', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     setOnline(true)
-    authState = { status: 'online', user, isOnlineAuthenticated: true, logout: vi.fn() }
+    authState = { status: 'online', user, isOnlineAuthenticated: true, logout: vi.fn(), updateDisplayName: vi.fn() }
     mocks.setOfflinePreparedVersion.mockResolvedValue(undefined)
   })
   afterEach(cleanup)
@@ -118,7 +118,7 @@ describe('OfflineStatusIndicator', () => {
   })
 
   it('renders no readiness promise for an unauthenticated user', async () => {
-    authState = { status: 'unauthenticated', user: null, isOnlineAuthenticated: false, logout: vi.fn() }
+    authState = { status: 'unauthenticated', user: null, isOnlineAuthenticated: false, logout: vi.fn(), updateDisplayName: vi.fn() }
 
     const view = render(<OfflineStatusIndicator />)
 

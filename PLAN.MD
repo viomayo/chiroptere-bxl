@@ -24,7 +24,9 @@
 - [fait] Exports CSV/JSON avec `user_id`/`user_name`, y compris pour les sessions distantes (superviseur), et comptage du groupe limité aux contacts non attribués à une espèce.
 - [fait] CSV compatible Excel (UTF-8 avec BOM, séparateur `;`, accents préservés), avec colonne `chouette_hulotte`, et ligne groupe émise seulement si les espèces du groupe diffèrent d'au moins une tranche positive ou s'il reste des contacts non attribués.
 - [fait] Case « Cri(s) de Chouette hulotte » par point, sauvegardée localement, synchronisée et exportée.
-- [fait] Bouton MAX placé sous les boutons −/+ sur mobile pour éviter les clics accidentels.
+- [fait] Export GeoJSON d'une FeatureCollection avec CRS déclarée `EPSG:31370`, coordonnées Lambert 72 brutes, comptages groupés par point et `geometry: null` pour les points sans coordonnées.
+- [fait] Bouton MAX rond et compact à droite du nom de chaque groupe d'espèces.
+- [fait] Profils utilisateurs contrôlés : table `profiles` préremplie au premier sign-in (nom Google), renommable depuis le tableau de bord en ligne, et noms affichés dans la vue superviseur à la place de l'identifiant tronqué (repli sur l'identifiant abrégé si le profil manque).
 - [fait] Tests unitaires/intégration, scénarios Playwright et CI.
 - [fait] Échange PKCE du code OAuth déplacé vers la route serveur `/api/auth/exchange`, stockage Supabase verrouillé sur la clé `chiroptere-auth`, et page `/auth/auth-code-error` affichant l'erreur exacte renvoyée par Supabase.
 - [fait] Mise à jour vers Next.js 16.3 et audit production sans vulnérabilité connue.
@@ -35,14 +37,12 @@
 - [fait] Validation des migrations sur Supabase local dans la CI.
 - [fait] Dry-run examiné puis migrations appliquées manuellement au Supabase distant.
 - [fait] Vérification distante des RPC, RLS, privilèges, advisors et de l'historique des migrations.
-- [à faire] Corriger dans le dashboard Supabase la « Site URL » (redirigée en erreur vers `http://localhost:3000`) et vérifier le secret Google du provider, puis lever l'erreur affichée sur `/auth/auth-code-error` à l'occasion d'un login réel.
+- [fait] Corriger dans le dashboard Supabase la « Site URL » (redirigée en erreur vers `http://localhost:3000`) et vérifier le secret Google du provider, puis lever l'erreur affichée sur `/auth/auth-code-error` à l'occasion d'un login réel (fait le 14 août 2026 : Site URL = `https://chiroptere-bxl.vercel.app`, Redirect URL ajoutée, login Google réel concluant).
 - [à faire] Exécuter une recette réelle sur iOS Safari et Android installés en PWA.
-- [à faire] Appliquer manuellement la migration `202608060001_owl_call.sql` (colonne `chouette_hulotte`) au Supabase distant avant le déploiement client.
+- [fait] Appliquer manuellement les migrations `202608060001_owl_call.sql` (colonne `chouette_hulotte`) et `202608140001_profiles.sql` (table `profiles`) au Supabase distant (fait le 14 août 2026, avec `supabase link`, dry-run puis push, et vérification du schéma distant : colonne, table `profiles` backfillée, trigger `trg_profiles_on_signup` actif).
 
 ## Évolutions produit possibles
 
-- [à faire] Export GeoJSON à partir des coordonnées existantes.
-- [à faire] Remplacer l'identifiant utilisateur abrégé de la vue superviseur par un nom provenant d'un profil contrôlé.
 - [à faire] Ajouter une observabilité distante des erreurs de synchronisation si le projet choisit un service de suivi.
 
 Les éléments de cette section sont planifiés et ne doivent pas être présentés comme implémentés.

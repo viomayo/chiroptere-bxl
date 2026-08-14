@@ -9,9 +9,15 @@ const mocks = vi.hoisted(() => ({
   saveSession: vi.fn(),
   removeTombstone: vi.fn(),
   saveTombstone: vi.fn(),
+  saveRemoteSession: vi.fn(),
+  saveRemotePoint: vi.fn(),
+  clearRemoteData: vi.fn(),
   rpc: vi.fn(),
   deleteEq: vi.fn(),
-  order: vi.fn(),
+  orderSessions: vi.fn(),
+  orderPoints: vi.fn(),
+  snapshot: vi.fn(),
+  profilesIn: vi.fn(),
 }))
 
 vi.mock('@/lib/idb', async (importOriginal) => ({
@@ -23,15 +29,26 @@ vi.mock('@/lib/idb', async (importOriginal) => ({
   saveSession: mocks.saveSession,
   removeTombstone: mocks.removeTombstone,
   saveTombstone: mocks.saveTombstone,
+  saveRemoteSession: mocks.saveRemoteSession,
+  saveRemotePoint: mocks.saveRemotePoint,
+  clearRemoteData: mocks.clearRemoteData,
 }))
 
 vi.mock('./client', () => ({
   createClient: () => ({
     rpc: mocks.rpc,
-    from: () => ({
-      delete: () => ({ eq: mocks.deleteEq }),
-      select: () => ({ eq: () => ({ order: mocks.order }), order: mocks.order }),
-    }),
+    from: (table: string) => {
+      if (table === 'profiles') return { select: () => ({ in: mocks.profilesIn }) }
+      if (table === 'observations') return { select: () => ({ eq: () => ({ data: [], error: null }) }) }
+      if (table === 'points') return { select: () => ({ eq: () => ({ order: mocks.orderPoints }) }) }
+      return {
+        delete: () => ({ eq: mocks.deleteEq }),
+        select: () => ({
+          eq: () => ({ single: mocks.snapshot, order: mocks.orderSessions }),
+          order: mocks.orderSessions,
+        }),
+      }
+    },
   }),
 }))
 
@@ -51,7 +68,13 @@ describe('snapshot synchronization', () => {
     mocks.getTombstones.mockResolvedValue([])
     mocks.rpc.mockResolvedValue({ data: { status: 'ok', revision: 5 }, error: null })
     mocks.deleteEq.mockResolvedValue({ error: null })
-    mocks.order.mockResolvedValue({ data: [], error: null })
+    mocks.orderSessions.mockResolvedValue({ data: [], error: null })
+    mocks.orderPoints.mockResolvedValue({ data: [], error: null })
+    mocks.snapshot.mockResolvedValue({ data: null, error: null })
+    mocks.profilesIn.mockResolvedValue({ data: [], error: null })
+    mocks.saveRemoteSession.mockResolvedValue(undefined)
+    mocks.saveRemotePoint.mockResolvedValue(undefined)
+    mocks.clearRemoteData.mockResolvedValue(undefined)
   })
 
   it('pushes dirty point snapshots even with no observations', async () => {
@@ -113,13 +136,55 @@ describe('snapshot synchronization', () => {
   })
 
   it('reports initial pull failures', async () => {
-    mocks.order.mockResolvedValue({ data: null, error: { message: 'offline' } })
+    mocks.orderSessions.mockResolvedValue({ data: null, error: { message: 'offline' } })
     expect(await pullMySessions('a')).toMatchObject({ errors: 1, failures: [{ sessionId: '*', message: 'offline' }] })
   })
 
   it('does not clear supervisor cache after a failed pull', async () => {
-    mocks.order.mockResolvedValue({ data: null, error: { message: 'denied' } })
+    mocks.orderSessions.mockResolvedValue({ data: null, error: { message: 'denied' } })
     await expect(pullAllSessionsForSupervisor('a')).rejects.toThrow('denied')
+  })
+
+  it('stores controlled profile names for remote session owners', async () => {
+    const owner = '00000000-0000-0000-0000-0000000000ab'
+    const remoteRow = { id: session.id, user_id: owner, type_site: 'Parc', nom_site: 'Distant', acronyme: 'D', debut_session: '2026-08-05T20:00:00Z', compteur_principal: 'Alice', nb_points_ecoute: 1, created_at: '2026-08-05T20:00:00Z', updated_at: '2026-08-05T21:00:00Z', sync_revision: 1 }
+    mocks.orderSessions.mockResolvedValue({ data: [remoteRow], error: null })
+    mocks.orderPoints.mockResolvedValue({ data: [{ id: 'p1', numero: 1, session_id: session.id, statut: 'termine' }], error: null })
+    mocks.snapshot.mockResolvedValue({ data: remoteRow, error: null })
+    mocks.profilesIn.mockResolvedValue({ data: [{ id: owner, nom: '  Violette Mayaux  ' }], error: null })
+
+    await pullAllSessionsForSupervisor('supervisor-a')
+
+    expect(mocks.profilesIn).toHaveBeenCalledWith('id', [owner])
+    expect(mocks.saveRemoteSession).toHaveBeenCalledWith(expect.objectContaining({ userId: owner, userName: 'Violette Mayaux', cachedBy: 'supervisor-a' }))
+    expect(mocks.saveRemotePoint).toHaveBeenCalledWith(expect.objectContaining({ userId: owner, userName: 'Violette Mayaux' }))
+    expect(mocks.clearRemoteData).toHaveBeenCalledWith('supervisor-a')
+  })
+
+  it('falls back to a null name when the profile row is missing', async () => {
+    const owner = '00000000-0000-0000-0000-0000000000ab'
+    const remoteRow = { id: session.id, user_id: owner, type_site: 'Parc', nom_site: 'Distant', acronyme: 'D', debut_session: '2026-08-05T20:00:00Z', compteur_principal: 'Alice', nb_points_ecoute: 1, created_at: '2026-08-05T20:00:00Z', updated_at: '2026-08-05T21:00:00Z', sync_revision: 1 }
+    mocks.orderSessions.mockResolvedValue({ data: [remoteRow], error: null })
+    mocks.orderPoints.mockResolvedValue({ data: [{ id: 'p1', numero: 1, session_id: session.id, statut: 'termine' }], error: null })
+    mocks.snapshot.mockResolvedValue({ data: remoteRow, error: null })
+    mocks.profilesIn.mockResolvedValue({ data: [{ id: owner, nom: '  ' }], error: null })
+
+    await pullAllSessionsForSupervisor('supervisor-a')
+
+    expect(mocks.saveRemoteSession).toHaveBeenCalledWith(expect.objectContaining({ userId: owner, userName: null }))
+    expect(mocks.saveRemotePoint).toHaveBeenCalledWith(expect.objectContaining({ userId: owner, userName: null }))
+  })
+
+  it('tolerates a failing profiles lookup during supervisor pull', async () => {
+    const owner = '00000000-0000-0000-0000-0000000000ab'
+    const remoteRow = { id: session.id, user_id: owner, type_site: 'Parc', nom_site: 'Distant', acronyme: 'D', debut_session: '2026-08-05T20:00:00Z', compteur_principal: 'Alice', nb_points_ecoute: 1, created_at: '2026-08-05T20:00:00Z', updated_at: '2026-08-05T21:00:00Z', sync_revision: 1 }
+    mocks.orderSessions.mockResolvedValue({ data: [remoteRow], error: null })
+    mocks.snapshot.mockResolvedValue({ data: remoteRow, error: null })
+    mocks.profilesIn.mockResolvedValue({ data: null, error: { message: 'denied' } })
+
+    await pullAllSessionsForSupervisor('supervisor-a')
+
+    expect(mocks.saveRemoteSession).toHaveBeenCalledWith(expect.objectContaining({ userName: null }))
   })
 
   it('serializes group and species observations', async () => {

@@ -338,24 +338,41 @@ export async function deleteSessionFromSupabase(sessionId: string): Promise<'ok'
   return error ? 'error' : 'ok'
 }
 
+async function fetchProfilesByUsers(userIds: string[]): Promise<Map<string, string>> {
+  const names = new Map<string, string>()
+  if (userIds.length === 0) return names
+  const supabase = createClient()
+  const { data, error } = await supabase.from('profiles').select('id, nom').in('id', userIds)
+  if (error || !data) return names
+  for (const profile of data as Record<string, unknown>[]) {
+    const nom = (profile.nom as string)?.trim()
+    if (nom) names.set(profile.id as string, nom)
+  }
+  return names
+}
+
 export async function pullAllSessionsForSupervisor(cachedBy: string): Promise<{ imported: number }> {
   const supabase = createClient()
   const { data: sessions, error } = await supabase.from('sessions').select('*').order('created_at', { ascending: false })
   if (error || !sessions) throw new Error(error?.message || 'Sessions distantes indisponibles')
 
-  const staged: Array<{ session: ReturnType<typeof mapSessionRow>; points: PointData[]; userId: string }> = []
-  for (const row of sessions as Record<string, unknown>[]) {
+  const rows = sessions as Record<string, unknown>[]
+  const userIds = [...new Set(rows.map((row) => row.user_id as string).filter(Boolean))]
+  const names = await fetchProfilesByUsers(userIds)
+
+  const staged: Array<{ session: ReturnType<typeof mapSessionRow>; points: PointData[]; userId: string; userName: string | null }> = []
+  for (const row of rows) {
     const userId = row.user_id as string
     if (userId === cachedBy) continue
     const remote = await fetchRemoteSnapshot(userId, row.id as string)
     if (!remote) throw new Error(`Snapshot incomplet: ${String(row.id)}`)
-    staged.push({ session: remote.session, points: remote.points, userId })
+    staged.push({ session: remote.session, points: remote.points, userId, userName: names.get(userId) ?? null })
   }
 
   await clearRemoteData(cachedBy)
   for (const item of staged) {
-    await saveRemoteSession({ ...item.session, userId: item.userId, userName: null, cachedBy })
-    for (const point of item.points) await saveRemotePoint({ ...point, userId: item.userId, userName: null, cachedBy })
+    await saveRemoteSession({ ...item.session, userId: item.userId, userName: item.userName, cachedBy })
+    for (const point of item.points) await saveRemotePoint({ ...point, userId: item.userId, userName: item.userName, cachedBy })
   }
   return { imported: staged.length }
 }
