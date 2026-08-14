@@ -38,7 +38,7 @@
 - [fait] Dry-run examiné puis migrations appliquées manuellement au Supabase distant.
 - [fait] Vérification distante des RPC, RLS, privilèges, advisors et de l'historique des migrations.
 - [fait] Corriger dans le dashboard Supabase la « Site URL » (redirigée en erreur vers `http://localhost:3000`) et vérifier le secret Google du provider, puis lever l'erreur affichée sur `/auth/auth-code-error` à l'occasion d'un login réel (fait le 14 août 2026 : Site URL = `https://chiroptere-bxl.vercel.app`, Redirect URL ajoutée, login Google réel concluant).
-- [à faire] Exécuter une recette réelle sur iOS Safari et Android installés en PWA.
+- [fait] Exécuter une recette réelle sur iOS Safari et Android installés en PWA (fait le 14 août 2026, version `71dd5d1` déployée sur Vercel, login et usage mobile concluants).
 - [fait] Appliquer manuellement les migrations `202608060001_owl_call.sql` (colonne `chouette_hulotte`) et `202608140001_profiles.sql` (table `profiles`) au Supabase distant (fait le 14 août 2026, avec `supabase link`, dry-run puis push, et vérification du schéma distant : colonne, table `profiles` backfillée, trigger `trg_profiles_on_signup` actif).
 
 ## Évolutions produit possibles
