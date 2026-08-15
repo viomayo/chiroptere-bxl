@@ -105,6 +105,7 @@ export default function AppShell({ children }: AppShellProps) {
           <a href="https://www.github.com/viomayo" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground/70 transition-colors">
             viomayo
           </a>
+          {' '}avec l&apos;aide de l&apos;IA
         </p>
       </footer>
     </div>

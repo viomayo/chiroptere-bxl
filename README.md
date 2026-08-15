@@ -114,3 +114,5 @@ La synchronisation automatique ne démarre qu'après confirmation distante de l'
 ## Démo et auteurs
 
 [Démo](https://chiroptere-bxl.vercel.app) · [@viomayo](https://github.com/viomayo) · [@thedasken](https://github.com/thedasken)
+
+Le pied de page de l'application affiche les crédits « Développé par thedasken et viomayo avec l'aide de l'IA ».
