@@ -31,6 +31,7 @@
 - [fait] Échange PKCE du code OAuth déplacé vers la route serveur `/api/auth/exchange`, stockage Supabase verrouillé sur la clé `chiroptere-auth`, et page `/auth/auth-code-error` affichant l'erreur exacte renvoyée par Supabase.
 - [fait] Mise à jour vers Next.js 16.3 et audit production sans vulnérabilité connue.
 - [fait] Pied de page de l'application avec les crédits « Développé par thedasken et viomayo avec l'aide de l'IA ».
+- [fait] Favicon du navigateur basé sur `icon-512.png` (fond noir), régénéré en 16×16 et 32×32.
 
 ## Déploiement
 

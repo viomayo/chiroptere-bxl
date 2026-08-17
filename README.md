@@ -20,6 +20,7 @@ Application PWA mobile-first pour les relevés de chauves-souris à Bruxelles. E
 - Exports CSV et JSON (avec `user_id`/`user_name`), y compris pour les sessions distantes (vue superviseur). Le CSV est encodé en UTF-8 avec BOM et séparé par des points-virgules pour s'ouvrir correctement dans Excel (colonnes et accents préservés), et inclut la colonne `chouette_hulotte`. Export GeoJSON d'une FeatureCollection déclarant la CRS Lambert 72 (`EPSG:31370`) avec les coordonnées brutes des points ; les points sans coordonnées sont conservés avec `geometry: null`.
 - PWA installable avec précache Serwist versionné des quatre shells terrain et page de diagnostic `/sw-status`. Une seule ouverture en ligne prépare `/`, `/site`, `/points` et `/compteur` ; les query strings réutilisent le shell canonique sans modifier l'URL visible.
 - Indicateur discret de disponibilité terrain : « Prêt hors ligne » n'apparaît qu'après vérification par le Service Worker de la version et des quatre shells, indépendamment de l'état de synchronisation des relevés.
+- Favicon du navigateur basé sur `icon-512.png` (fond noir), régénéré en 16×16 et 32×32.
 
 ## Routes
 
