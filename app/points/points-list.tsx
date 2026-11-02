@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getSessions, getSessionById, initSessionPoints, getRemoteSessionById, getRemotePointsBySession, type SessionData, type RemoteSessionData, type PointData, type PointCounts } from '@/lib/idb'
 import { ChevronRight, Download, Eye } from 'lucide-react'
-import { downloadText, sessionToCSV, sessionToGeoJSON, sessionToJSON } from '@/lib/exports'
+import { downloadText, sessionToCSV, sessionToGeoJSON, sessionToJSON, type ExportUser } from '@/lib/exports'
+import { EXTRA_GROUP_COLORS } from '@/lib/extra-species'
 import { useOfflineAuth } from '@/app/components/offline-auth-provider'
 
 type Statut = PointData['statut']
@@ -15,6 +16,10 @@ const GROUP_LABELS: Record<GroupKey, string> = {
   murins: 'Murins',
   serotules: 'Sérotules',
   autres: 'Autres',
+  oiseaux: 'Oiseaux',
+  mammiferes: 'Autres mammifères',
+  insectes: 'Insectes',
+  amphibiens: 'Amphibiens',
 }
 
 const GROUP_COLORS: Record<GroupKey, string> = {
@@ -22,6 +27,7 @@ const GROUP_COLORS: Record<GroupKey, string> = {
   murins: '#22c55e',
   serotules: '#f97316',
   autres: '#ec4899',
+  ...EXTRA_GROUP_COLORS,
 }
 
 const STATUT_LABEL: Record<Statut, string> = {
@@ -49,31 +55,31 @@ function formatTime(iso: string | null): string {
 }
 
 function getGroupTotals(counts: PointCounts): { key: GroupKey; label: string; total: number }[] {
-  const keys: GroupKey[] = ['pipistrelles', 'murins', 'serotules', 'autres']
+  const keys: GroupKey[] = ['pipistrelles', 'murins', 'serotules', 'autres', 'oiseaux', 'mammiferes', 'insectes', 'amphibiens']
   return keys
     .map((key) => ({ key, label: GROUP_LABELS[key], total: counts[key].total }))
     .filter((g) => g.total > 0)
 }
 
-function exportCSV(session: SessionData, points: PointData[], user?: { id?: string | null; name?: string | null }) {
+function exportCSV(session: SessionData, points: PointData[], user?: ExportUser) {
   downloadText(sessionToCSV(session, points, user), `${session.acronyme}-session.csv`, 'text/csv;charset=utf-8')
 }
 
-function exportJSON(session: SessionData, points: PointData[], user?: { id?: string | null; name?: string | null }) {
+function exportJSON(session: SessionData, points: PointData[], user?: ExportUser) {
   downloadText(sessionToJSON(session, points, undefined, user), `${session.acronyme}-session.json`, 'application/json')
 }
 
-function exportGeoJSON(session: SessionData, points: PointData[], user?: { id?: string | null; name?: string | null }) {
+function exportGeoJSON(session: SessionData, points: PointData[], user?: ExportUser) {
   downloadText(sessionToGeoJSON(session, points, undefined, user), `${session.acronyme}-session.geojson`, 'application/geo+json')
 }
 
 export default function PointsList() {
   const { user } = useOfflineAuth()
   if (!user) return null
-  return <PointsListForOwner key={user.ownerId} ownerId={user.ownerId} />
+  return <PointsListForOwner key={user.ownerId} ownerId={user.ownerId} displayName={user.displayName} />
 }
 
-function PointsListForOwner({ ownerId }: { ownerId: string }) {
+function PointsListForOwner({ ownerId, displayName }: { ownerId: string; displayName: string }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('sessionId')
@@ -155,6 +161,10 @@ function PointsListForOwner({ ownerId }: { ownerId: string }) {
     )
   }
 
+  const sessionUser: ExportUser = isRemote
+    ? { id: (session as RemoteSessionData).userId, name: (session as RemoteSessionData).userName }
+    : { id: ownerId, name: displayName }
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
@@ -218,7 +228,7 @@ function PointsListForOwner({ ownerId }: { ownerId: string }) {
       <div className="flex flex-wrap gap-2 pt-1">
         <button
           type="button"
-          onClick={() => exportCSV(session, points, isRemote ? { id: (session as RemoteSessionData).userId, name: (session as RemoteSessionData).userName } : undefined)}
+          onClick={() => exportCSV(session, points, sessionUser)}
           className="flex-1 min-w-[6rem] flex items-center justify-center gap-2 rounded-lg border border-foreground/10 px-4 py-2.5 text-xs font-medium text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80 transition-colors cursor-pointer"
         >
           <Download size={13} />
@@ -226,7 +236,7 @@ function PointsListForOwner({ ownerId }: { ownerId: string }) {
         </button>
         <button
           type="button"
-          onClick={() => exportJSON(session, points, isRemote ? { id: (session as RemoteSessionData).userId, name: (session as RemoteSessionData).userName } : undefined)}
+          onClick={() => exportJSON(session, points, sessionUser)}
           className="flex-1 min-w-[6rem] flex items-center justify-center gap-2 rounded-lg border border-foreground/10 px-4 py-2.5 text-xs font-medium text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80 transition-colors cursor-pointer"
         >
           <Download size={13} />
@@ -234,7 +244,7 @@ function PointsListForOwner({ ownerId }: { ownerId: string }) {
         </button>
         <button
           type="button"
-          onClick={() => exportGeoJSON(session, points, isRemote ? { id: (session as RemoteSessionData).userId, name: (session as RemoteSessionData).userName } : undefined)}
+          onClick={() => exportGeoJSON(session, points, sessionUser)}
           className="flex-1 min-w-[6rem] flex items-center justify-center gap-2 rounded-lg border border-foreground/10 px-4 py-2.5 text-xs font-medium text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80 transition-colors cursor-pointer"
         >
           <Download size={13} />

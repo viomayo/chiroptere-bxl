@@ -6,18 +6,22 @@ Application PWA mobile-first pour les relevés de chauves-souris à Bruxelles. E
 
 - Authentification Google avec Supabase Auth. Les shells terrain sont publics et statiques ; les données locales sont verrouillées par l'identité cliente et les données distantes par Supabase Auth/RLS.
 - Création de sessions et 319 points prédéfinis avec coordonnées et description.
-- Compteur chronométré par tranches, groupes et espèces, avec pause, reprise, MAX (petit bouton rond à droite du nom de chaque groupe), annulation et révision.
-- Case « Cri(s) de Chouette hulotte » par point, sauvegardée localement et synchronisée.
+- Compteur chronométré par tranches, groupes et espèces, avec pause, reprise, MAX (petit bouton rond à droite du nom de chaque groupe), MIN (petit bouton rond à gauche qui remet le groupe à zéro), annulation et révision. L'heure de début (`heure_debut`) est fixée au lancement du minuteur et l'heure de fin (`heure_fin`) à sa terminaison ; modifier ensuite le point (identification des espèces ou autre) puis le valider ne change pas ces heures, seul un reset suivi d'un nouveau lancement les met à jour.
+- Espèces proposées par groupe : Pipistrelles (commune, de Nathusius, de Nathusius/Kuhl, pygmée), Murins (de Brandt, à moustaches, d'Alcathoé, à oreilles échancrées, de Natterer, des marais, de Daubenton, de Bechstein, Grand Murin), Sérotines/Noctules (Sérotine commune, Noctule de Leisler, Noctule commune) et Oreillards (gris, roux). Le groupe « Autres » accepte en plus une identification libre saisie au clavier.
+- Quatre compteurs sans tranches, de la même taille que les compteurs à tranches, présentés en cases à cocher et repliés derrière une flèche : « Oiseaux » (Chouette hulotte, Chouette effraie, Chevêche d'Athéna, Hibou moyen-duc), « Autres mammifères » (Chevreuil d'Europe, Hérisson commun, Renard roux, Fouine, Sanglier, Lérot), « Insectes » (vers luisants, orthoptères communs et orthoptères exceptionnels, regroupés en sections dépliables) et « Amphibiens » (Grenouille rousse, Grenouille verte, Crapaud commun, Salamandre tachetée, Triton alpestre, Triton ponctué, Triton palmé). L'ancienne case « Cri(s) de Chouette hulotte » est reprise dans le compteur « Oiseaux » ; les anciennes données sont migrées à la lecture. Ces compteurs secondaires utilisent la couleur beige de base de l'interface.
+- Répartition des contacts du tableau de bord par groupe, y compris Oiseaux, Autres mammifères, Insectes et Amphibiens.
+- Historique des sessions sur le tableau de bord : les 5 plus récentes sont affichées, les suivantes se déploient via « Voir plus » (et se replient via « Voir moins »).
 - Sauvegarde automatique des brouillons dans IndexedDB.
 - Profil d'identité offline actif conservé dans IndexedDB, sans jeton ni droit distant, et désactivable sans supprimer les relevés locaux.
-- Données locales isolées par compte. Les anciennes données sans propriétaire restent en quarantaine jusqu'à attribution explicite ou export JSON.
+- Données locales isolées par compte. Les anciennes données sans propriétaire restent en quarantaine jusqu'à attribution explicite ou export ; la quarantaine s'exporte séparément du reste des données, en CSV, JSON ou GeoJSON.
 - Synchronisation par snapshot atomique : session, points et observations sont écrits dans une transaction Supabase.
 - Synchronisation déclenchée à la confirmation d'une identité en ligne, au retour du réseau ou manuellement, avec un seul push/pull actif à la fois.
 - Révision distante agrégée, conflits sur le snapshot complet et choix explicite entre version locale ou distante.
 - Suppressions hors ligne conservées sous forme de tombstones jusqu'à confirmation Supabase.
-- Cache superviseur local séparé par compte ; l'interface superviseur reste désactivée jusqu'à l'ajout d'une validation distante côté client.
+- Cache superviseur local séparé par compte. La vue « Données des autres utilisateurs » n'apparaît qu'après confirmation en ligne du rôle superviseur via la fonction contrôlée `current_user_is_supervisor()` : aucun droit n'est déduit localement, et la section disparaît dès que l'identité n'est plus vérifiée ou que le réseau est coupé. Les points distants sont normalisés à la lecture, avec reprise de l'ancien groupe `reptiles` vers `amphibiens`.
 - Profil utilisateur contrôlé : table `profiles` préremplie au premier sign-in (nom Google), renommable depuis le tableau de bord en ligne, et noms affichés dans la vue superviseur à la place de l'identifiant tronqué.
-- Exports CSV et JSON (avec `user_id`/`user_name`), y compris pour les sessions distantes (vue superviseur). Le CSV est encodé en UTF-8 avec BOM et séparé par des points-virgules pour s'ouvrir correctement dans Excel (colonnes et accents préservés), et inclut la colonne `chouette_hulotte`. Export GeoJSON d'une FeatureCollection déclarant la CRS Lambert 72 (`EPSG:31370`) avec les coordonnées brutes des points ; les points sans coordonnées sont conservés avec `geometry: null`.
+- Export agrégé de toutes les données de l'utilisateur courant en CSV, JSON et GeoJSON depuis le tableau de bord (section « Mes données »).
+- Exports CSV et JSON (avec `user_id`/`user_name`) depuis la page des points d'une session, et pour les sessions distantes de chaque utilisateur dans la vue superviseur. Le CSV est encodé en UTF-8 avec BOM et séparé par des points-virgules pour s'ouvrir correctement dans Excel (colonnes et accents préservés), et inclut la colonne `chouette_hulotte` (dérivée du compteur « Oiseaux »). Export GeoJSON d'une FeatureCollection déclarant la CRS Lambert 72 (`EPSG:31370`) avec les coordonnées brutes des points ; les points sans coordonnées sont conservés avec `geometry: null`.
 - PWA installable avec précache Serwist versionné des quatre shells terrain et page de diagnostic `/sw-status`. Une seule ouverture en ligne prépare `/`, `/site`, `/points` et `/compteur` ; les query strings réutilisent le shell canonique sans modifier l'URL visible.
 - Indicateur discret de disponibilité terrain : « Prêt hors ligne » n'apparaît qu'après vérification par le Service Worker de la version et des quatre shells, indépendamment de l'état de synchronisation des relevés.
 - Favicon du navigateur basé sur `icon-512.png` (fond noir), régénéré en 16×16 et 32×32.
@@ -41,6 +45,8 @@ npm ci
 cp .env.example .env
 npm run dev
 ```
+
+En développement, `allowedDevOrigins` autorise `127.0.0.1` et `localhost` : sans cela, Next 16 bloque le websocket HMR et la page reste bloquée sur l'écran de démarrage (le logo).
 
 Variables requises :
 

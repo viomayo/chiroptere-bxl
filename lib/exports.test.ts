@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import { csvCell, downloadText, sessionToCSV, sessionToGeoJSON, sessionToJSON } from './exports'
+import { buildSessionExports, csvCell, downloadText, sessionToCSV, sessionToGeoJSON, sessionToJSON, sessionsToCSV, sessionsToGeoJSON, sessionsToJSON, slugify } from './exports'
 import { defaultCounts, type PointData, type SessionData } from './idb'
 
 const session: SessionData = { id: '00000000-0000-0000-0000-000000000001', ownerId: 'user-a', typeSite: 'Étang', nomSite: 'Bois, test', acronyme: 'BT', debutSession: '2026-08-05T20:00:00Z', finSession: '', compteurPrincipal: 'Alice', autresCompteurs: '', nbPointsEcoute: 1, detecteurs: ['D1'], commentaire: '', createdAt: '2026-08-05T20:00:00Z', updatedAt: '2026-08-05T20:00:00Z', syncedAt: null, dirty: true, lastSyncedRemoteRevision: null, syncError: null }
 const point: PointData = { id: 'p1', ownerId: 'user-a', sessionId: session.id, numero: 1, heureDebut: null, heureFin: null, nbEspeces: 0, statut: 'non_demarre', counts: defaultCounts(), localisation: '', commentaire: 'ligne\n2', timerState: null, coordX: 1, coordY: 2, chouetteHulotte: false, updatedAt: session.updatedAt }
+const otherSession: SessionData = { ...session, id: '00000000-0000-0000-0000-000000000002', acronyme: 'PC', nomSite: 'Parc' }
+const otherPoint: PointData = { ...point, id: 'p2', sessionId: otherSession.id, numero: 1 }
 
 function pointWithSpecies(): PointData {
   const counts = defaultCounts()
@@ -65,6 +67,14 @@ describe('exports', () => {
     const lines = csv.split('\n')
     expect(lines.find((l) => l.includes(';point;;;0;;1'))).toBeTruthy()
   })
+  it('exports extra counters as species without tranche rows', () => {
+    const counts = defaultCounts()
+    counts.oiseaux = { total: 2, trancheHistory: [], species: [{ name: 'Chouette hulotte', count: 2, trancheHistory: [] }] }
+    const csv = sessionToCSV(session, [{ ...point, commentaire: '', counts, chouetteHulotte: true }])
+    const lines = csv.split('\n')
+    expect(lines.find((l) => l.includes(';espece;Oiseaux;Chouette hulotte;2;;1'))).toBeTruthy()
+    expect(lines.find((l) => l.includes(';groupe;Oiseaux'))).toBeFalsy()
+  })
   it('creates deterministic JSON when given a date', () => {
     expect(JSON.parse(sessionToJSON(session, [point], 'now'))).toMatchObject({ exportedAt: 'now', session: { id: session.id }, points: [{ id: 'p1' }] })
   })
@@ -113,5 +123,76 @@ describe('exports', () => {
     expect(create).toHaveBeenCalled()
     expect(click).toHaveBeenCalled()
     expect(revoke).toHaveBeenCalledWith('blob:test')
+  })
+})
+
+describe('slugify', () => {
+  it('strips accents and punctuation for safe filenames', () => {
+    expect(slugify('Zoë Müller-Apéro')).toBe('zoe-muller-apero')
+    expect(slugify('   ')).toBe('')
+  })
+})
+
+describe('buildSessionExports', () => {
+  it('groups points per session and sorts them by number', () => {
+    const shuffled = { ...point, id: 'p3', numero: 3 }
+    const exports = buildSessionExports([session, otherSession], [shuffled, otherPoint, point])
+    expect(exports.map((entry) => entry.session.id)).toEqual([session.id, otherSession.id])
+    expect(exports[0].points.map((p) => p.numero)).toEqual([1, 3])
+    expect(exports[1].points).toHaveLength(1)
+  })
+
+  it('keeps a session with no point', () => {
+    const exports = buildSessionExports([session], [])
+    expect(exports).toEqual([{ session, points: [] }])
+  })
+
+  it('drops points belonging to an unrelated session', () => {
+    const exports = buildSessionExports([session], [{ ...point, sessionId: 'inconnue' }])
+    expect(exports[0].points).toEqual([])
+  })
+})
+
+describe('multi-session exports', () => {
+  const entries = buildSessionExports([session, otherSession], [point, otherPoint])
+  const user = { id: 'user-a', name: 'Alice' }
+
+  it('emits a single CSV header and one row per session', () => {
+    const flat = [point, otherPoint].map((p) => ({ ...p, commentaire: '' }))
+    const csv = sessionsToCSV(buildSessionExports([session, otherSession], flat), user)
+    const lines = csv.split('\n')
+    expect(csv.startsWith('\uFEFF')).toBe(true)
+    expect(lines[0].replace(/^\uFEFF/, '')).toBe(sessionToCSV(session, [], user).split('\n')[0].replace(/^\uFEFF/, ''))
+    expect(lines).toHaveLength(3)
+    expect(lines[1]).toContain(`${session.id};user-a;Alice`)
+    expect(lines[2]).toContain(`${otherSession.id};user-a;Alice`)
+  })
+
+  it('produces a header-only CSV when there is no data', () => {
+    expect(sessionsToCSV([]).split('\n')).toHaveLength(1)
+  })
+
+  it('aggregates every session and point into one JSON document', () => {
+    const json = JSON.parse(sessionsToJSON(entries, 'now', user))
+    expect(json).toMatchObject({ exportedAt: 'now', user: { id: 'user-a', name: 'Alice' } })
+    expect(json.sessions.map((s: SessionData) => s.id)).toEqual([session.id, otherSession.id])
+    expect(json.points.map((p: PointData) => p.id)).toEqual(['p1', 'p2'])
+  })
+
+  it('omits the user when the export has no owner identity', () => {
+    expect(JSON.parse(sessionsToJSON(entries, 'now')).user).toBeUndefined()
+  })
+
+  it('merges all points into a single Lambert 72 FeatureCollection', () => {
+    const geojson = JSON.parse(sessionsToGeoJSON(entries, 'now', user, 'chiro-bxl-alice'))
+    expect(geojson.type).toBe('FeatureCollection')
+    expect(geojson.name).toBe('chiro-bxl-alice')
+    expect(geojson.crs).toEqual({ type: 'name', properties: { name: 'EPSG:31370' } })
+    expect(geojson.features.map((f: { id: string }) => f.id)).toEqual(['BT-01', 'PC-01'])
+    expect(geojson.features[1].properties).toMatchObject({ session_id: otherSession.id, user: { id: 'user-a', name: 'Alice' } })
+  })
+
+  it('defaults the FeatureCollection name', () => {
+    expect(JSON.parse(sessionsToGeoJSON(entries)).name).toBe('chiroptere-bxl')
   })
 })

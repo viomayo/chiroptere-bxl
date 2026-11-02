@@ -129,6 +129,29 @@ describe('user-scoped IndexedDB', () => {
     expect((await getPointsBySession('a', value.id)).map((p) => p.numero)).toEqual([1, 2])
   })
 
+  it('migrates the legacy owl flag into the birds counter', async () => {
+    const value = session('a', '00000000-0000-0000-0000-000000000001')
+    const empty = { total: 0, trancheHistory: [], species: [] }
+    const legacyCounts = {
+      pipistrelles: empty,
+      murins: empty,
+      serotules: empty,
+      autres: empty,
+    } as unknown as PointData['counts']
+    await saveSessionWithPoints(value, [{
+      ...point('a', value.id),
+      counts: legacyCounts,
+      chouetteHulotte: true,
+    }])
+
+    const saved = await getPointById('a', `${value.id}-p1`)
+    expect(saved?.counts.oiseaux).toMatchObject({
+      total: 1,
+      species: [{ name: 'Chouette hulotte', count: 1 }],
+    })
+    expect(saved?.chouetteHulotte).toBe(true)
+  })
+
   it('has no legacy records in a fresh database', async () => {
     expect(await getLegacySessions()).toEqual([])
     await claimLegacyData('a')
@@ -183,6 +206,30 @@ describe('user-scoped IndexedDB', () => {
 
     expect((await getRemotePointsBySession('supervisor', value.id)).map((p) => p.numero)).toEqual([1, 2])
     expect((await getAllRemotePoints('supervisor')).map((p) => p.numero)).toEqual([1, 2])
+  })
+
+  it('normalizes legacy remote point counts on read', async () => {
+    const value = session('observed', '00000000-0000-0000-0000-000000000001')
+    const legacyCounts = defaultCounts() as unknown as Record<string, unknown>
+    delete legacyCounts.oiseaux
+    delete legacyCounts.mammiferes
+    delete legacyCounts.insectes
+    delete legacyCounts.amphibiens
+    legacyCounts.reptiles = { total: 1, trancheHistory: [], species: [{ name: 'Grenouille rousse', count: 1, trancheHistory: [] }] }
+    await saveRemotePoint({
+      ...point('observed', value.id),
+      counts: legacyCounts as unknown as PointData['counts'],
+      userId: 'observed',
+      userName: null,
+      cachedBy: 'supervisor',
+    })
+
+    const [remote] = await getRemotePointsBySession('supervisor', value.id)
+    expect(remote.counts.oiseaux.total).toBe(0)
+    expect(remote.counts.mammiferes.total).toBe(0)
+    expect(remote.counts.insectes.total).toBe(0)
+    expect(remote.counts.amphibiens.total).toBe(1)
+    expect(remote.counts.amphibiens.species[0].name).toBe('Grenouille rousse')
   })
 
   it('rejects inconsistent owners', async () => {

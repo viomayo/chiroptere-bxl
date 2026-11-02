@@ -1,7 +1,11 @@
 import type { GroupCount, PointCounts, PointTimerState } from './idb'
+import { EXTRA_GROUP_KEYS, type ExtraGroupKey } from './extra-species'
 
 export type GroupKey = keyof PointCounts
-export const GROUP_KEYS: GroupKey[] = ['pipistrelles', 'serotules', 'murins', 'autres']
+export const BAT_GROUP_KEYS = ['pipistrelles', 'serotules', 'murins', 'autres'] as const
+export type BatGroupKey = typeof BAT_GROUP_KEYS[number]
+export { EXTRA_GROUP_KEYS, type ExtraGroupKey }
+export const GROUP_KEYS: GroupKey[] = [...BAT_GROUP_KEYS, ...EXTRA_GROUP_KEYS]
 
 export function cloneGroupCount(group: GroupCount): GroupCount {
   return {
@@ -17,6 +21,10 @@ export function cloneCounts(counts: PointCounts): PointCounts {
     murins: cloneGroupCount(counts.murins),
     serotules: cloneGroupCount(counts.serotules),
     autres: cloneGroupCount(counts.autres),
+    oiseaux: cloneGroupCount(counts.oiseaux),
+    mammiferes: cloneGroupCount(counts.mammiferes),
+    insectes: cloneGroupCount(counts.insectes),
+    amphibiens: cloneGroupCount(counts.amphibiens),
   }
 }
 
@@ -67,10 +75,70 @@ export function toggleSpecies(counts: PointCounts, group: GroupKey, name: string
   return { ...counts, [group]: { ...current, species } }
 }
 
+/** Ajoute ou retire des individus dans un compteur sans tranches. */
+export function adjustSpeciesCount(
+  counts: PointCounts,
+  group: ExtraGroupKey,
+  name: string,
+  delta: number,
+): PointCounts {
+  const current = counts[group]
+  const existing = current.species.find((species) => species.name === name)
+  const nextCount = Math.max(0, (existing?.count ?? 0) + delta)
+  const species = nextCount === 0
+    ? current.species.filter((item) => item.name !== name)
+    : existing
+      ? current.species.map((item) => item.name === name ? { ...item, count: nextCount } : item)
+      : [...current.species, { name, count: nextCount, trancheHistory: [] }]
+
+  return {
+    ...counts,
+    [group]: {
+      ...current,
+      total: species.reduce((total, item) => total + item.count, 0),
+      trancheHistory: [],
+      species,
+    },
+  }
+}
+
+/** Coche ou décoche une espèce dans un compteur sans tranches. */
+export function setSpeciesChecked(
+  counts: PointCounts,
+  group: ExtraGroupKey,
+  name: string,
+  checked: boolean,
+): PointCounts {
+  const current = counts[group]
+  const exists = current.species.some((species) => species.name === name)
+  const species = checked
+    ? exists
+      ? current.species
+      : [...current.species, { name, count: 1, trancheHistory: [] }]
+    : current.species.filter((species) => species.name !== name)
+
+  return {
+    ...counts,
+    [group]: {
+      ...current,
+      total: species.reduce((total, item) => total + item.count, 0),
+      trancheHistory: [],
+      species,
+    },
+  }
+}
+
 export function fillGroup(counts: PointCounts, group: GroupKey, trancheCount: number): PointCounts {
   return {
     ...counts,
     [group]: { ...counts[group], total: trancheCount, trancheHistory: Array.from({ length: trancheCount }, (_, index) => index + 1) },
+  }
+}
+
+export function clearGroup(counts: PointCounts, group: GroupKey): PointCounts {
+  return {
+    ...counts,
+    [group]: { total: 0, trancheHistory: [], species: [] },
   }
 }
 

@@ -1,3 +1,5 @@
+import { MAMMAL_SPECIES } from './extra-species'
+
 const DB_NAME = 'chiroptere-bxl'
 const DB_VERSION = 6
 const STORE_SESSIONS = 'sessions'
@@ -72,6 +74,10 @@ export interface PointCounts {
   murins: GroupCount
   serotules: GroupCount
   autres: GroupCount
+  oiseaux: GroupCount
+  mammiferes: GroupCount
+  insectes: GroupCount
+  amphibiens: GroupCount
 }
 
 export interface PointTimerState {
@@ -114,7 +120,72 @@ export interface SessionTombstone {
 
 export function defaultCounts(): PointCounts {
   const empty = (): GroupCount => ({ total: 0, trancheHistory: [], species: [] })
-  return { pipistrelles: empty(), murins: empty(), serotules: empty(), autres: empty() }
+  return {
+    pipistrelles: empty(),
+    murins: empty(),
+    serotules: empty(),
+    autres: empty(),
+    oiseaux: empty(),
+    mammiferes: empty(),
+    insectes: empty(),
+    amphibiens: empty(),
+  }
+}
+
+export const CHOUETTE_HULOTTE = 'Chouette hulotte'
+
+function normalizeExtraGroup(group: GroupCount | undefined): GroupCount {
+  const species = (group?.species ?? [])
+    .filter((item) => item.count > 0)
+    .map((item) => ({ ...item, trancheHistory: [] }))
+  return {
+    total: species.reduce((total, item) => total + item.count, 0),
+    trancheHistory: [],
+    species,
+  }
+}
+
+function mergeExtraGroups(groups: (GroupCount | undefined)[]): GroupCount {
+  const byName = new Map<string, number>()
+  for (const group of groups) {
+    for (const species of group?.species ?? []) {
+      if (species.count <= 0) continue
+      byName.set(species.name, Math.max(byName.get(species.name) ?? 0, species.count))
+    }
+  }
+  return normalizeExtraGroup({
+    total: 0,
+    trancheHistory: [],
+    species: Array.from(byName, ([name, count]) => ({ name, count, trancheHistory: [] })),
+  })
+}
+
+/** Normalise les compteurs hors tranches et reprend l'ancien drapeau Chouette hulotte. */
+export function normalizePointCounts(counts: PointCounts, legacyOwlCall = false): PointCounts {
+  const legacyOiseaux = normalizeExtraGroup(counts.oiseaux)
+  const legacyMammals = legacyOiseaux.species.filter((item) => MAMMAL_SPECIES.includes(item.name as typeof MAMMAL_SPECIES[number]))
+  const birdsOnly = legacyOiseaux.species.filter((item) => !MAMMAL_SPECIES.includes(item.name as typeof MAMMAL_SPECIES[number]))
+  let oiseaux = normalizeExtraGroup({ ...legacyOiseaux, species: birdsOnly })
+  const mammiferes = mergeExtraGroups([
+    counts.mammiferes,
+    { total: 0, trancheHistory: [], species: legacyMammals },
+  ])
+
+  if (legacyOwlCall && !oiseaux.species.some((item) => item.name === CHOUETTE_HULOTTE)) {
+    oiseaux = {
+      ...oiseaux,
+      species: [...oiseaux.species, { name: CHOUETTE_HULOTTE, count: 1, trancheHistory: [] }],
+      total: oiseaux.total + 1,
+    }
+  }
+
+  return {
+    ...counts,
+    oiseaux,
+    mammiferes,
+    insectes: normalizeExtraGroup(counts.insectes),
+    amphibiens: normalizeExtraGroup(counts.amphibiens),
+  }
 }
 
 let _db: Promise<IDBDatabase> | null = null
@@ -329,7 +400,12 @@ function hydratePoint(raw: Record<string, unknown>): PointData {
     murins: hydrateGroupCount(rc.murins),
     serotules: hydrateGroupCount(rc.serotules),
     autres: hydrateGroupCount(rc.autres),
+    oiseaux: hydrateGroupCount(rc.oiseaux),
+    mammiferes: hydrateGroupCount(rc.mammiferes),
+    insectes: hydrateGroupCount(rc.insectes),
+    amphibiens: hydrateGroupCount(rc.amphibiens ?? rc.reptiles),
   } : defaultCounts()
+  const normalizedCounts = normalizePointCounts(counts, raw.chouetteHulotte === true)
   return {
     id: raw.id as string,
     ownerId: (raw.ownerId as string) || LEGACY_OWNER_ID,
@@ -339,14 +415,23 @@ function hydratePoint(raw: Record<string, unknown>): PointData {
     heureFin: (raw.heureFin as string | null) ?? null,
     nbEspeces: (raw.nbEspeces as number) ?? 0,
     statut: (raw.statut as PointData['statut']) ?? 'non_demarre',
-    counts,
+    counts: normalizedCounts,
     localisation: (raw.localisation as string) ?? '',
     commentaire: (raw.commentaire as string) ?? '',
     timerState: timerState ?? null,
     coordX: (raw.coordX as number | null) ?? null,
     coordY: (raw.coordY as number | null) ?? null,
-    chouetteHulotte: raw.chouetteHulotte === true,
+    chouetteHulotte: normalizedCounts.oiseaux.species.some((item) => item.name === CHOUETTE_HULOTTE),
     updatedAt: (raw.updatedAt as string) ?? new Date().toISOString(),
+  }
+}
+
+function hydrateRemotePoint(raw: Record<string, unknown>): RemotePointData {
+  return {
+    ...hydratePoint(raw),
+    userId: raw.userId as string,
+    userName: (raw.userName as string | null) ?? null,
+    cachedBy: raw.cachedBy as string,
   }
 }
 
@@ -651,7 +736,8 @@ export async function getRemotePointsBySession(cachedBy: string, sessionId: stri
     const tx = db.transaction(STORE_REMOTE_POINTS, 'readonly')
     const req = tx.objectStore(STORE_REMOTE_POINTS).index('sessionId').getAll(sessionId)
     req.onsuccess = () => {
-      const points = (req.result as RemotePointData[])
+      const points = (req.result as Record<string, unknown>[])
+        .map(hydrateRemotePoint)
         .filter((point) => point.cachedBy === cachedBy)
         .sort((a, b) => a.numero - b.numero)
       resolve(points)
@@ -666,7 +752,9 @@ export async function getAllRemotePoints(cachedBy: string): Promise<RemotePointD
     const tx = db.transaction(STORE_REMOTE_POINTS, 'readonly')
     const req = tx.objectStore(STORE_REMOTE_POINTS).index('cachedBy').getAll(cachedBy)
     req.onsuccess = () => {
-      const points = (req.result as RemotePointData[]).sort((a, b) => a.numero - b.numero)
+      const points = (req.result as Record<string, unknown>[])
+        .map(hydrateRemotePoint)
+        .sort((a, b) => a.numero - b.numero)
       resolve(points)
     }
     req.onerror = () => reject(req.error)

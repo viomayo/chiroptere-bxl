@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -18,21 +18,22 @@ import {
   type RemoteSessionData,
   type RemotePointData,
 } from '@/lib/idb'
-import { getStoredConflicts, pullAllSessionsForSupervisor, SYNC_STATE_EVENT, type SyncConflict } from '@/lib/supabase/sync'
+import { getStoredConflicts, pullAllSessionsForSupervisor, fetchSupervisorStatus, SYNC_STATE_EVENT, type SyncConflict } from '@/lib/supabase/sync'
+import { buildSessionExports, downloadText, sessionsToCSV, sessionsToGeoJSON, sessionsToJSON, slugify, type ExportUser, type SessionExport } from '@/lib/exports'
 import { MapPin, Radio, Plus, ArrowRight, ChevronRight, AlertTriangle, Download, Users, Trash2, Pencil, Check, X } from 'lucide-react'
 import { useOfflineAuth } from './offline-auth-provider'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 function contactsForPoint(counts: PointCounts): number {
-  return counts.pipistrelles.total + counts.murins.total + counts.serotules.total + counts.autres.total
+  return Object.values(counts).reduce((total, group) => total + group.total, 0)
 }
 
 function distinctSpeciesCount(points: PointData[]): number {
   const names = new Set<string>()
   for (const p of points) {
-    for (const g of [p.counts.pipistrelles, p.counts.murins, p.counts.serotules, p.counts.autres]) {
-      for (const sp of g.species) {
+    for (const group of Object.values(p.counts)) {
+      for (const sp of group.species) {
         if (sp.count > 0) names.add(sp.name)
       }
     }
@@ -58,6 +59,61 @@ function formatLongDate(): string {
   }).format(new Date())
 }
 
+// ── exports ───────────────────────────────────────────────────────────────────
+
+type ExportFormat = 'csv' | 'json' | 'geojson'
+
+const EXPORT_MIME: Record<ExportFormat, string> = {
+  csv: 'text/csv;charset=utf-8',
+  json: 'application/json',
+  geojson: 'application/geo+json',
+}
+
+const EXPORT_LABEL: Record<ExportFormat, string> = {
+  csv: 'CSV',
+  json: 'JSON',
+  geojson: 'GeoJSON',
+}
+
+const EXPORT_EXTENSION: Record<ExportFormat, string> = {
+  csv: 'csv',
+  json: 'json',
+  geojson: 'geojson',
+}
+
+function serializeExports(exports: SessionExport[], format: ExportFormat, user?: ExportUser, name?: string): string {
+  if (format === 'csv') return sessionsToCSV(exports, user)
+  if (format === 'geojson') return sessionsToGeoJSON(exports, undefined, user, name)
+  return sessionsToJSON(exports, undefined, user)
+}
+
+function downloadExports(exports: SessionExport[], format: ExportFormat, baseName: string, user?: ExportUser) {
+  if (exports.length === 0) return
+  downloadText(serializeExports(exports, format, user, baseName), `${baseName}.${EXPORT_EXTENSION[format]}`, EXPORT_MIME[format])
+}
+
+const EXPORT_BUTTON_CLASS = 'flex-1 min-w-[5.5rem] flex items-center justify-center gap-1.5 rounded-lg border border-foreground/10 px-3 py-2 text-xs font-medium text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80 transition-colors cursor-pointer'
+
+function ExportButtons({ exports, baseName, user, label }: { exports: SessionExport[]; baseName: string; user?: ExportUser; label?: string }) {
+  if (exports.length === 0) return null
+  return (
+    <div className="flex flex-wrap gap-2">
+      {(Object.keys(EXPORT_LABEL) as ExportFormat[]).map((format) => (
+        <button
+          key={format}
+          type="button"
+          onClick={() => downloadExports(exports, format, baseName, user)}
+          className={EXPORT_BUTTON_CLASS}
+          aria-label={`Exporter en ${EXPORT_LABEL[format]}${label ? ` ${label}` : ''}`}
+        >
+          <Download size={12} />
+          {EXPORT_LABEL[format]}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 // ── stat chip ─────────────────────────────────────────────────────────────────
 
 function StatChip({ label, value, sub }: { label: string; value: number; sub?: string }) {
@@ -76,7 +132,7 @@ function GroupBar({ label, value, total }: { label: string; value: number; total
   const pct = total > 0 ? (value / total) * 100 : 0
   return (
     <div className="flex items-center gap-3">
-      <span className="text-xs text-foreground/45 w-24 shrink-0 text-right leading-none">{label}</span>
+      <span className="text-xs text-foreground/45 w-32 shrink-0 text-right leading-none">{label}</span>
       <div className="flex-1 h-1 rounded-full bg-foreground/8 overflow-hidden">
         <div
           className="h-full bg-foreground/35 rounded-full"
@@ -107,8 +163,6 @@ export default function Dashboard() {
 }
 
 function DashboardForOwner({ name, userId, online, onRename }: { name: string; userId: string; online: boolean; onRename: (name: string) => Promise<void> }) {
-  // Les fonctions superviseur restent masquées jusqu'à une validation distante côté client.
-  const isSupervisor = false
   const router = useRouter()
   const firstName = name.split(' ')[0]
 
@@ -121,19 +175,47 @@ function DashboardForOwner({ name, userId, online, onRename }: { name: string; u
   const [pulling, setPulling] = useState(false)
   const [pullError, setPullError] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [showAllSessions, setShowAllSessions] = useState(false)
   const [legacyCount, setLegacyCount] = useState(0)
   const [editingName, setEditingName] = useState(false)
   const [draftName, setDraftName] = useState('')
+  // Le rôle superviseur n'est jamais déduit localement : sans confirmation
+  // distante, la section reste masquée. La confirmation est révoquée dès que
+  // l'identité n'est plus vérifiée en ligne.
+  const [supervisorConfirmed, setSupervisorConfirmed] = useState(false)
+  const isSupervisor = online && supervisorConfirmed
 
-  async function handleExportLegacy() {
+  const myExports = useMemo(() => buildSessionExports(sessions, allPoints), [sessions, allPoints])
+
+  const ownUser: ExportUser = useMemo(() => ({ id: userId, name }), [userId, name])
+
+  const remoteByUser = useMemo(() => {
+    const groups = new Map<string, { userId: string; userName: string | null; sessions: RemoteSessionData[] }>()
+    for (const session of remoteSessions) {
+      const group = groups.get(session.userId) ?? { userId: session.userId, userName: session.userName, sessions: [] }
+      group.sessions.push(session)
+      groups.set(session.userId, group)
+    }
+    return [...groups.values()].sort((a, b) => (a.userName ?? a.userId).localeCompare(b.userName ?? b.userId, 'fr'))
+  }, [remoteSessions])
+
+  const remoteExportsByUser = useMemo(() => {
+    const map = new Map<string, SessionExport[]>()
+    for (const group of remoteByUser) {
+      const points = remotePoints.filter((point) => point.userId === group.userId)
+      map.set(group.userId, buildSessionExports(group.sessions, points))
+    }
+    return map
+  }, [remoteByUser, remotePoints])
+
+  async function handleExportLegacy(format: ExportFormat) {
     const [legacySessions, legacyPoints] = await Promise.all([getLegacySessions(), getAllPoints(LEGACY_OWNER_ID)])
-    const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), sessions: legacySessions, points: legacyPoints }, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = 'chiro-bxl-donnees-locales-en-quarantaine.json'
-    anchor.click()
-    URL.revokeObjectURL(url)
+    const content = format === 'csv'
+      ? sessionsToCSV(buildSessionExports(legacySessions, legacyPoints))
+      : format === 'geojson'
+        ? sessionsToGeoJSON(buildSessionExports(legacySessions, legacyPoints), undefined, undefined, 'quarantaine')
+        : JSON.stringify({ exportedAt: new Date().toISOString(), sessions: legacySessions, points: legacyPoints }, null, 2)
+    downloadText(content, `chiro-bxl-donnees-locales-en-quarantaine.${EXPORT_EXTENSION[format]}`, EXPORT_MIME[format])
   }
 
   async function handleDelete(sessionId: string, e: React.MouseEvent) {
@@ -194,6 +276,15 @@ function DashboardForOwner({ name, userId, online, onRename }: { name: string; u
     return () => window.removeEventListener(SYNC_STATE_EVENT, refreshConflicts)
   }, [])
 
+  useEffect(() => {
+    if (!online || !userId) return
+    let active = true
+    fetchSupervisorStatus().then((value) => {
+      if (active) setSupervisorConfirmed(value)
+    })
+    return () => { active = false }
+  }, [online, userId])
+
   const handlePullRemote = useCallback(async () => {
     if (!userId || pulling) return
     setPulling(true)
@@ -250,10 +341,14 @@ function DashboardForOwner({ name, userId, online, onRename }: { name: string; u
     murins: allPoints.reduce((acc, p) => acc + p.counts.murins.total, 0),
     serotules: allPoints.reduce((acc, p) => acc + p.counts.serotules.total, 0),
     autres: allPoints.reduce((acc, p) => acc + p.counts.autres.total, 0),
+    oiseaux: allPoints.reduce((acc, p) => acc + p.counts.oiseaux.total, 0),
+    mammiferes: allPoints.reduce((acc, p) => acc + p.counts.mammiferes.total, 0),
+    insectes: allPoints.reduce((acc, p) => acc + p.counts.insectes.total, 0),
+    amphibiens: allPoints.reduce((acc, p) => acc + p.counts.amphibiens.total, 0),
   }
 
-  // Recent sessions enriched
-  const recentSessions = sortedSessions.slice(0, 6).map((s) => {
+  // All sessions enriched
+  const allSessionsList = sortedSessions.map((s) => {
     const pts = ptsBySession[s.id] ?? []
     const done = pts.filter((p) => p.statut === 'termine').length
     const contacts = pts.reduce((acc, p) => acc + contactsForPoint(p.counts), 0)
@@ -284,9 +379,11 @@ function DashboardForOwner({ name, userId, online, onRename }: { name: string; u
           <p className="text-xs text-foreground/70">
             {legacyCount} ancienne{legacyCount > 1 ? 's' : ''} session{legacyCount > 1 ? 's' : ''} locale{legacyCount > 1 ? 's' : ''} en quarantaine.
           </p>
-          <div className="flex gap-2">
-            <button type="button" onClick={handleClaimLegacy} className="text-xs underline">Attribuer à mon compte</button>
-            <button type="button" onClick={handleExportLegacy} className="text-xs underline">Exporter en JSON</button>
+          <div className="flex gap-3">
+            <button type="button" onClick={handleClaimLegacy} className="text-xs underline cursor-pointer">Attribuer à mon compte</button>
+            <button type="button" onClick={() => handleExportLegacy('json')} className="text-xs underline cursor-pointer">Exporter en JSON</button>
+            <button type="button" onClick={() => handleExportLegacy('csv')} className="text-xs underline cursor-pointer">Exporter en CSV</button>
+            <button type="button" onClick={() => handleExportLegacy('geojson')} className="text-xs underline cursor-pointer">Exporter en GeoJSON</button>
           </div>
         </div>
       )}
@@ -411,16 +508,35 @@ function DashboardForOwner({ name, userId, online, onRename }: { name: string; u
             <GroupBar label="Murins" value={groupTotals.murins} total={totalContactsAll} />
             <GroupBar label="Sérotules" value={groupTotals.serotules} total={totalContactsAll} />
             <GroupBar label="Autres" value={groupTotals.autres} total={totalContactsAll} />
+            <GroupBar label="Oiseaux" value={groupTotals.oiseaux} total={totalContactsAll} />
+            <GroupBar label="Autres mammifères" value={groupTotals.mammiferes} total={totalContactsAll} />
+            <GroupBar label="Insectes" value={groupTotals.insectes} total={totalContactsAll} />
+            <GroupBar label="Amphibiens" value={groupTotals.amphibiens} total={totalContactsAll} />
           </div>
         </div>
       )}
 
-      {/* Recent sessions */}
+      {/* Full export of the current user's own data */}
+      {hasData && (
+        <div className="rounded-xl border border-foreground/8 bg-background px-4 py-4 flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-foreground/38 uppercase tracking-widest font-medium">
+              Mes données
+            </p>
+            <span className="text-xs text-foreground/30 tabular-nums">
+              {sessions.length} session{sessions.length > 1 ? 's' : ''} · {allPoints.length} point{allPoints.length > 1 ? 's' : ''}
+            </span>
+          </div>
+          <ExportButtons exports={myExports} baseName={`chiro-bxl-${slugify(name) || 'mes-donnees'}`} user={ownUser} label="de mes données" />
+        </div>
+      )}
+
+      {/* All sessions */}
       {hasData && (
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <p className="text-xs text-foreground/38 uppercase tracking-widest font-medium">
-              Sessions récentes
+              Historique des sessions
             </p>
             <Link
               href="/site"
@@ -432,7 +548,7 @@ function DashboardForOwner({ name, userId, online, onRename }: { name: string; u
           </div>
 
           <div className="flex flex-col gap-2">
-            {recentSessions.map(({ session, done, contacts, total }) => (
+            {(allSessionsList.slice(0, 5)).map(({ session, done, contacts, total }) => (
               <div
                 key={session.id}
                 onClick={() => router.push(`/points?sessionId=${session.id}`)}
@@ -490,8 +606,86 @@ function DashboardForOwner({ name, userId, online, onRename }: { name: string; u
                 </div>
               </div>
             ))}
+              {allSessionsList.length > 5 && !showAllSessions && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllSessions(true)}
+                  className="self-center mt-1 text-xs text-foreground/40 hover:text-foreground/70 transition-colors"
+                >
+                  Voir plus ({allSessionsList.length - 5})
+                </button>
+              )}
+              {showAllSessions && (
+                <>
+                  {allSessionsList.slice(5).map(({ session, done, contacts, total }) => (
+                    <div
+                      key={session.id}
+                      onClick={() => router.push(`/points?sessionId=${session.id}`)}
+                      className="w-full text-left rounded-xl border border-foreground/8 bg-background px-4 py-3.5 flex items-center gap-3 hover:bg-foreground/3 active:bg-foreground/6 transition-colors cursor-pointer"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <span className="text-sm font-medium truncate">{session.nomSite}</span>
+                          <span className="text-xs text-foreground/30 font-mono tabular-nums shrink-0">
+                            {formatShortDate(session.debutSession)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2.5 text-xs text-foreground/40">
+                          <span className="flex items-center gap-1">
+                            <MapPin size={10} className="shrink-0" />
+                            {session.typeSite}
+                          </span>
+                          <span className="text-foreground/18">·</span>
+                          <span>{done}/{total} pts</span>
+                          {contacts > 0 && (
+                            <>
+                              <span className="text-foreground/18">·</span>
+                              <span>{contacts} contacts</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            conflictIds.has(session.id)
+                              ? 'bg-[#b87840]'
+                              : session.syncedAt && !session.dirty
+                                ? 'bg-[#4d8c5c]'
+                                : 'bg-foreground/12'
+                          }`}
+                          title={
+                            conflictIds.has(session.id)
+                              ? 'Conflit'
+                              : session.syncedAt && !session.dirty
+                                ? 'Synchronisé'
+                                : 'Non synchronisé'
+                          }
+                        />
+                        <button
+                          type="button"
+                          onClick={(e) => handleDelete(session.id, e)}
+                          disabled={deletingId === session.id}
+                          className="p-1 rounded-md hover:bg-red-500/10 text-foreground/20 hover:text-red-500/70 disabled:opacity-30 transition-colors"
+                          title="Supprimer"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                        <ChevronRight size={13} className="text-foreground/20" />
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setShowAllSessions(false)}
+                    className="self-center mt-1 text-xs text-foreground/40 hover:text-foreground/70 transition-colors"
+                  >
+                    Voir moins
+                  </button>
+                </>
+              )}
+            </div>
           </div>
-        </div>
       )}
 
       {/* Supervisor: remote data */}
@@ -535,52 +729,69 @@ function DashboardForOwner({ name, userId, online, onRename }: { name: string; u
             </p>
           )}
 
-          <div className="flex flex-col gap-2">
-            {remoteSessions.map((s) => {
-              const pts = remotePoints.filter((p) => p.sessionId === s.id)
-              const done = pts.filter((p) => p.statut === 'termine').length
-              const contacts = pts.reduce((acc, p) => {
-                const c = p.counts
-                return acc + c.pipistrelles.total + c.murins.total + c.serotules.total + c.autres.total
-              }, 0)
-              const total = pts.length || s.nbPointsEcoute
+          <div className="flex flex-col gap-4">
+            {remoteByUser.map((group) => {
+              const exports = remoteExportsByUser.get(group.userId) ?? []
+              const label = group.userName ?? group.userId.substring(0, 8)
               return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => router.push(`/points?sessionId=${s.id}`)}
-                  className="w-full text-left rounded-xl border border-foreground/8 bg-background px-4 py-3.5 flex items-center gap-3 hover:bg-foreground/3 active:bg-foreground/6 transition-colors cursor-pointer"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="text-sm font-medium truncate">{s.nomSite}</span>
-                      <span className="text-xs text-foreground/30 font-mono tabular-nums shrink-0">
-                        {formatShortDate(s.debutSession)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2.5 text-xs text-foreground/40">
-                      <span
-                        className="text-[10px] px-1.5 py-0.5 rounded bg-foreground/8 text-foreground/45 font-medium uppercase tracking-wider truncate max-w-[10rem]"
-                        title={s.userName ?? s.userId}
-                      >
-                        {s.userName ?? s.userId.substring(0, 8)}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <MapPin size={10} className="shrink-0" />
-                        {s.typeSite}
-                      </span>
-                      <span className="text-foreground/18">·</span>
-                      <span>{done}/{total} pts</span>
-                      {contacts > 0 && (
-                        <>
-                          <span className="text-foreground/18">·</span>
-                          <span>{contacts} contacts</span>
-                        </>
-                      )}
-                    </div>
+                <div key={group.userId} className="rounded-xl border border-foreground/8 bg-background px-4 py-3.5 flex flex-col gap-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium truncate" title={group.userName ?? group.userId}>
+                      {label}
+                    </span>
+                    <span className="text-xs text-foreground/30 tabular-nums shrink-0">
+                      {group.sessions.length} session{group.sessions.length > 1 ? 's' : ''}
+                    </span>
                   </div>
-                  <ChevronRight size={13} className="text-foreground/20" />
-                </button>
+
+                  <ExportButtons
+                    exports={exports}
+                    baseName={`chiro-bxl-${slugify(label) || group.userId.substring(0, 8)}`}
+                    user={{ id: group.userId, name: group.userName }}
+                    label={`de ${label}`}
+                  />
+
+                  <div className="flex flex-col gap-1.5">
+                    {group.sessions.map((s) => {
+                      const pts = remotePoints.filter((p) => p.sessionId === s.id)
+                      const done = pts.filter((p) => p.statut === 'termine').length
+                      const contacts = pts.reduce((acc, p) => acc + contactsForPoint(p.counts), 0)
+                      const total = pts.length || s.nbPointsEcoute
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => router.push(`/points?sessionId=${s.id}`)}
+                          className="w-full text-left rounded-lg border border-foreground/8 bg-background px-3 py-2.5 flex items-center gap-3 hover:bg-foreground/3 active:bg-foreground/6 transition-colors cursor-pointer"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2 mb-0.5">
+                              <span className="text-sm font-medium truncate">{s.nomSite}</span>
+                              <span className="text-xs text-foreground/30 font-mono tabular-nums shrink-0">
+                                {formatShortDate(s.debutSession)}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2.5 text-xs text-foreground/40">
+                              <span className="flex items-center gap-1">
+                                <MapPin size={10} className="shrink-0" />
+                                {s.typeSite}
+                              </span>
+                              <span className="text-foreground/18">·</span>
+                              <span>{done}/{total} pts</span>
+                              {contacts > 0 && (
+                                <>
+                                  <span className="text-foreground/18">·</span>
+                                  <span>{contacts} contacts</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <ChevronRight size={13} className="text-foreground/20" />
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
               )
             })}
           </div>

@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import PointsList from './points-list'
 import type { OfflineAuthState } from '@/app/components/offline-auth-provider'
@@ -11,6 +11,10 @@ const updateDisplayName = vi.fn()
 const mocks = vi.hoisted(() => ({
   getSessions: vi.fn(),
   initSessionPoints: vi.fn(),
+  downloadText: vi.fn(),
+  sessionToCSV: vi.fn(() => 'csv'),
+  sessionToJSON: vi.fn(() => 'json'),
+  sessionToGeoJSON: vi.fn(() => 'geojson'),
 }))
 
 vi.mock('@/app/components/offline-auth-provider', () => ({
@@ -28,10 +32,10 @@ vi.mock('@/lib/idb', () => ({
   getRemotePointsBySession: vi.fn(),
 }))
 vi.mock('@/lib/exports', () => ({
-  downloadText: vi.fn(),
-  sessionToCSV: vi.fn(),
-  sessionToJSON: vi.fn(),
-  sessionToGeoJSON: vi.fn(),
+  downloadText: mocks.downloadText,
+  sessionToCSV: mocks.sessionToCSV,
+  sessionToJSON: mocks.sessionToJSON,
+  sessionToGeoJSON: mocks.sessionToGeoJSON,
 }))
 
 const emptyGroup = { total: 0, trancheHistory: [], species: [] }
@@ -69,7 +73,16 @@ function point(ownerId: string): PointData {
     heureFin: null,
     nbEspeces: 0,
     statut: 'non_demarre',
-    counts: { pipistrelles: emptyGroup, murins: emptyGroup, serotules: emptyGroup, autres: emptyGroup },
+    counts: {
+      pipistrelles: emptyGroup,
+      murins: emptyGroup,
+      serotules: emptyGroup,
+      autres: emptyGroup,
+      oiseaux: emptyGroup,
+      mammiferes: emptyGroup,
+      insectes: emptyGroup,
+      amphibiens: emptyGroup,
+    },
     localisation: '',
     commentaire: '',
     timerState: null,
@@ -113,5 +126,22 @@ describe('PointsList identity isolation', () => {
     expect(screen.queryByText('Session · Site a')).not.toBeInTheDocument()
     await waitFor(() => expect(mocks.getSessions).toHaveBeenCalledWith('b'))
     expect(await screen.findByText('Aucune session en cours.')).toBeVisible()
+  })
+
+  it('stamps the resolved owner identity on a local session export', async () => {
+    authState = {
+      status: 'offline',
+      user: { ownerId: 'a', displayName: 'Utilisateur A', avatarUrl: null },
+      isOnlineAuthenticated: false,
+      logout,
+      updateDisplayName,
+    }
+    render(<PointsList />)
+
+    await screen.findByText('Session · Site a')
+    fireEvent.click(screen.getByRole('button', { name: 'Exporter CSV' }))
+
+    expect(mocks.sessionToCSV).toHaveBeenCalledWith(expect.objectContaining({ ownerId: 'a' }), [expect.objectContaining({ id: 'point-a' })], { id: 'a', name: 'Utilisateur A' })
+    expect(mocks.downloadText).toHaveBeenCalledWith('csv', 'A-session.csv', 'text/csv;charset=utf-8')
   })
 })

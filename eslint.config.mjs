@@ -16,6 +16,8 @@ const eslintConfig = defineConfig([
     "test-results/**",
     "playwright-report/**",
     "next-env.d.ts",
+    // Scratch diagnostic script kept out of git (see .gitignore).
+    "diag-cdp3.js",
   ]),
 ]);
 

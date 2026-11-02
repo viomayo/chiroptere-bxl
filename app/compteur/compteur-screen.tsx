@@ -8,14 +8,35 @@ import {
   getSessionById,
   updatePoint,
   defaultCounts,
+  normalizePointCounts,
+  CHOUETTE_HULOTTE,
   type PointData,
   type PointCounts,
   type GroupCount,
   type SessionData,
 } from '@/lib/idb'
 import { getSiteConfig, type SiteTypeConfig } from '@/lib/site-config'
-import { addTranche, buildTimerState, cloneCounts, countSpecies, fillGroup, removeTranche, toggleSpecies } from '@/lib/counter'
-import { Pause, Play, RotateCcw, Undo2, Eye, EyeOff } from 'lucide-react'
+import {
+  addTranche,
+  BAT_GROUP_KEYS,
+  buildTimerState,
+  clearGroup,
+  cloneCounts,
+  countSpecies,
+  EXTRA_GROUP_KEYS,
+  fillGroup,
+  removeTranche,
+  setSpeciesChecked,
+  toggleSpecies,
+  type BatGroupKey,
+  type ExtraGroupKey,
+} from '@/lib/counter'
+import {
+  EXTRA_COUNTERS,
+  EXTRA_GROUP_COLORS,
+  EXTRA_GROUP_LABELS,
+} from '@/lib/extra-species'
+import { ChevronDown, Pause, Play, RotateCcw, Undo2, Eye, EyeOff } from 'lucide-react'
 import { useOfflineAuth } from '@/app/components/offline-auth-provider'
 
 type GroupKey = keyof PointCounts
@@ -25,6 +46,7 @@ const GROUP_LABELS: Record<GroupKey, string> = {
   murins: 'Murins',
   serotules: 'Sérotules',
   autres: 'Autres',
+  ...EXTRA_GROUP_LABELS,
 }
 
 const GROUP_COLORS: Record<GroupKey, string> = {
@@ -32,36 +54,49 @@ const GROUP_COLORS: Record<GroupKey, string> = {
   murins: '#22c55e',
   serotules: '#f97316',
   autres: '#ec4899',
+  ...EXTRA_GROUP_COLORS,
 }
-
-const GROUP_KEYS: GroupKey[] = ['pipistrelles', 'serotules', 'murins', 'autres']
 
 const SPECIES_LABELS: Record<string, string> = {
   'Pip. commune': 'Pipistrelle commune',
+  'Pip. de Nathusius': 'Pipistrelle de Nathusius',
   'Pip. de Nathusius/Kuhl': 'Pipistrelle de Nathusius/Kuhl',
   'Pip. pygmée': 'Pipistrelle pygmée',
   'Sérotine commune': 'Sérotine commune',
   'Noctule de Leisler': 'Noctule de Leisler',
   'Noctule commune': 'Noctule commune',
-  'M. de Daubenton': 'Murin de Daubenton',
-  'M. de Natterer': 'Murin de Natterer',
+  'M. de Brandt': 'Murin de Brandt',
+  'M. à moustaches': 'Murin à moustaches',
+  "M. d'Alcathoé": "Murin d'Alcathoé",
   'M. à oreilles échancrées': 'Murin à oreilles échancrées',
+  'M. de Natterer': 'Murin de Natterer',
+  'M. des marais': 'Murin des marais',
+  'M. de Daubenton': 'Murin de Daubenton',
+  'M. de Bechstein': 'Murin de Bechstein',
+  'Grand Murin': 'Grand Murin',
   'Autres murins': 'Autres murins',
-  'Oreillard sp': 'Oreillard sp.',
+  'Oreillard gris': 'Oreillard gris',
+  'Oreillard roux': 'Oreillard roux',
   'Autres': 'Autres',
 }
 
-const SPECIES: Record<GroupKey, string[]> = {
+const SPECIES: Record<BatGroupKey, string[]> = {
   pipistrelles: [
     'Pip. commune',
+    'Pip. de Nathusius',
     'Pip. de Nathusius/Kuhl',
     'Pip. pygmée',
   ],
   murins: [
-    'M. de Daubenton',
-    'M. de Natterer',
+    'M. de Brandt',
+    'M. à moustaches',
+    "M. d'Alcathoé",
     'M. à oreilles échancrées',
-    'Autres murins',
+    'M. de Natterer',
+    'M. des marais',
+    'M. de Daubenton',
+    'M. de Bechstein',
+    'Grand Murin',
   ],
   serotules: [
     'Sérotine commune',
@@ -69,13 +104,18 @@ const SPECIES: Record<GroupKey, string[]> = {
     'Noctule commune',
   ],
   autres: [
-    'Oreillard sp',
+    'Oreillard gris',
+    'Oreillard roux',
     'Autres',
   ],
 }
 
 function p2(n: number) {
   return String(n).padStart(2, '0')
+}
+
+function hasOwlCall(counts: PointCounts): boolean {
+  return counts.oiseaux.species.some((species) => species.name === CHOUETTE_HULOTTE && species.count > 0)
 }
 
 function formatHMS(d: Date) {
@@ -173,11 +213,83 @@ function InlineSpeciesPicker({
   tranche,
   onToggle,
 }: {
-  groupKey: GroupKey
+  groupKey: BatGroupKey
   count: GroupCount
   tranche: number
   onToggle: (sp: string, tranche: number) => void
 }) {
+  const [customAutre, setCustomAutre] = useState('')
+
+  if (groupKey === 'autres') {
+    return (
+      <div className="flex flex-col gap-1 pt-2 border-t border-foreground/8">
+        <span className="text-xs font-medium text-foreground/45">
+          Tranche {tranche}
+        </span>
+        {SPECIES[groupKey].map((sp) => {
+          if (sp === 'Autres') {
+            const customEntry = count.species.find(
+              (s) => s.name !== 'Oreillard gris' && s.name !== 'Oreillard roux' && s.trancheHistory.includes(tranche)
+            )
+            const isChecked = !!customEntry
+            return (
+              <div key={sp} className="flex flex-col gap-1">
+                <label className="flex items-center gap-2 py-1 rounded-lg hover:bg-foreground/3 active:bg-foreground/6 -mx-1 px-1 transition-colors cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => {
+                      if (isChecked && customEntry) {
+                        onToggle(customEntry.name, tranche)
+                        return
+                      }
+                      const name = customAutre.trim() || 'Autres'
+                      onToggle(name, tranche)
+                    }}
+                    className="w-3.5 h-3.5 rounded border-foreground/20 accent-foreground"
+                  />
+                  <span className="text-[10px] sm:text-xs text-foreground/70">Autres</span>
+                </label>
+                {isChecked && (
+                  <input
+                    type="text"
+                    value={customEntry?.name === 'Autres' ? customAutre : customEntry?.name || customAutre}
+                    onChange={(e) => {
+                      setCustomAutre(e.target.value)
+                      const name = e.target.value.trim() || 'Autres'
+                      if (customEntry && customEntry.name !== name) {
+                        onToggle(customEntry.name, tranche)
+                        onToggle(name, tranche)
+                      }
+                    }}
+                    placeholder="Préciser l'espèce..."
+                    className="ml-6 px-2 py-1 text-[10px] rounded border border-foreground/10 bg-background text-foreground/80 focus:outline-none focus:ring-1 focus:ring-foreground/20"
+                  />
+                )}
+              </div>
+            )
+          }
+          const entry = count.species.find((s) => s.name === sp)
+          const isChecked = entry?.trancheHistory.includes(tranche) ?? false
+          return (
+            <label
+              key={sp}
+              className="flex items-center gap-2 py-1 rounded-lg hover:bg-foreground/3 active:bg-foreground/6 -mx-1 px-1 transition-colors cursor-pointer select-none"
+            >
+              <input
+                type="checkbox"
+                checked={isChecked}
+                onChange={() => onToggle(sp, tranche)}
+                className="w-3.5 h-3.5 rounded border-foreground/20 accent-foreground"
+              />
+              <span className="text-[10px] sm:text-xs text-foreground/70">{SPECIES_LABELS[sp]}</span>
+            </label>
+          )
+        })}
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-1 pt-2 border-t border-foreground/8">
       <span className="text-xs font-medium text-foreground/45">
@@ -214,14 +326,14 @@ function ReviewPanel({
 }: {
   counts: PointCounts
   nbTranches: number
-  onToggleSpecies: (group: GroupKey, sp: string, tranche: number) => void
+  onToggleSpecies: (group: BatGroupKey, sp: string, tranche: number) => void
 }) {
   return (
     <div className="rounded-xl border border-foreground/8 bg-background p-4 flex flex-col gap-4">
       <span className="text-xs font-medium text-foreground/45 uppercase tracking-wider">
         Révision des espèces par tranche
       </span>
-      {GROUP_KEYS.map((group) => {
+      {BAT_GROUP_KEYS.map((group) => {
         const gc = counts[group]
         if (gc.total === 0 && gc.species.length === 0) return null
         return (
@@ -296,11 +408,12 @@ function GroupCard({
   onAdd,
   onRemove,
   onMax,
+  onMin,
   onAddTranche,
   detailTranche,
   onToggleSpecies,
 }: {
-  groupKey: GroupKey
+  groupKey: BatGroupKey
   count: GroupCount
   nbTranches: number
   canAdd: boolean
@@ -308,6 +421,7 @@ function GroupCard({
   onAdd: () => void
   onRemove: () => void
   onMax: () => void
+  onMin: () => void
   onAddTranche: (t: number) => void
   detailTranche: number | null
   onToggleSpecies: (sp: string, tranche: number) => void
@@ -318,14 +432,25 @@ function GroupCard({
         <span className="text-base font-bold" style={{ color: GROUP_COLORS[groupKey], fontVariant: 'small-caps' }}>
           {GROUP_LABELS[groupKey]}
         </span>
-        <button
-          type="button"
-          onClick={onMax}
-          title="Remplir toutes les tranches"
-          className="shrink-0 w-7 h-7 rounded-full border border-foreground/10 text-[9px] font-medium text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 transition-colors cursor-pointer"
-        >
-          MAX
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onMin}
+            title="Remettre à zéro"
+            disabled={count.total === 0 && count.species.length === 0}
+            className="shrink-0 px-1.5 h-7 rounded-full border border-foreground/10 text-[9px] font-medium text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 transition-colors cursor-pointer disabled:opacity-25 disabled:cursor-not-allowed"
+          >
+            MIN
+          </button>
+          <button
+            type="button"
+            onClick={onMax}
+            title="Remplir toutes les tranches"
+            className="shrink-0 px-1.5 h-7 rounded-full border border-foreground/10 text-[9px] font-medium text-foreground/55 hover:bg-foreground/5 active:bg-foreground/10 transition-colors cursor-pointer"
+          >
+            MAX
+          </button>
+        </div>
       </div>
 
       <div className="text-center leading-none select-none">
@@ -365,6 +490,98 @@ function GroupCard({
           tranche={detailTranche}
           onToggle={onToggleSpecies}
         />
+      )}
+    </div>
+  )
+}
+
+// ── Extra counter (no tranches) ───────────────────────────────────────────────
+
+function ExtraCounterCard({
+  groupKey,
+  count,
+  onToggle,
+}: {
+  groupKey: ExtraGroupKey
+  count: GroupCount
+  onToggle: (sp: string, checked: boolean) => void
+}) {
+  const config = EXTRA_COUNTERS[groupKey]
+  const color = GROUP_COLORS[groupKey]
+  const [open, setOpen] = useState(false)
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({})
+
+  function toggleSection(key: string) {
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  return (
+    <div className="rounded-xl border border-foreground/8 bg-background p-3 flex flex-col gap-2.5">
+      <div className="flex items-center justify-between gap-2 min-h-4.5">
+        <button
+          type="button"
+          onClick={() => setOpen((prev) => !prev)}
+          aria-expanded={open}
+          aria-controls={`extra-${groupKey}`}
+          className="flex items-center gap-1.5 text-left cursor-pointer"
+        >
+          <ChevronDown
+            size={16}
+            className={`shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+            style={{ color }}
+          />
+          <span className="text-base font-bold" style={{ color, fontVariant: 'small-caps' }}>
+            {GROUP_LABELS[groupKey]}
+          </span>
+        </button>
+        <span className="text-xs tabular-nums text-foreground/40">
+          {count.total}
+        </span>
+      </div>
+
+      {open && (
+        <div id={`extra-${groupKey}`} className="flex flex-col gap-2">
+          {config.sections.map((section, index) => {
+            const sectionKey = section.label ?? `section-${index}`
+            const hasLabel = Boolean(section.label)
+            const sectionOpen = !hasLabel || openSections[sectionKey] === true
+            return (
+              <div key={sectionKey} className="flex flex-col gap-1">
+                {hasLabel && (
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(sectionKey)}
+                    aria-expanded={sectionOpen}
+                    className="flex items-center gap-1 self-start text-[10px] font-medium uppercase tracking-wider text-foreground/35 pt-1 cursor-pointer"
+                  >
+                    <ChevronDown
+                      size={11}
+                      className={`shrink-0 transition-transform ${sectionOpen ? 'rotate-180' : ''}`}
+                    />
+                    {section.label}
+                  </button>
+                )}
+                {sectionOpen && section.species.map((sp) => {
+                  const checked = (count.species.find((item) => item.name === sp)?.count ?? 0) > 0
+                  return (
+                    <label
+                      key={sp}
+                      className="flex items-center gap-2 py-1 rounded-lg hover:bg-foreground/3 active:bg-foreground/6 -mx-1 px-1 transition-colors cursor-pointer select-none"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(event) => onToggle(sp, event.target.checked)}
+                        className="w-3.5 h-3.5 rounded border-foreground/20 accent-foreground"
+                      />
+                      <span className="text-[10px] sm:text-xs text-foreground/70">{sp}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
       )}
     </div>
   )
@@ -412,10 +629,9 @@ function CompteurScreenForOwner({ ownerId }: { ownerId: string }) {
   const [counts, setCounts] = useState<PointCounts>(defaultCounts())
   const [localisation, setLocalisation] = useState('')
   const [commentaire, setCommentaire] = useState('')
-  const [chouetteHulotte, setChouetteHulotte] = useState(false)
 
   // Per-group detail tranche (non-null = detail open for that tranche)
-  const [detailTranche, setDetailTranche] = useState<Record<GroupKey, number | null>>({
+  const [detailTranche, setDetailTranche] = useState<Record<BatGroupKey, number | null>>({
     pipistrelles: null,
     murins: null,
     serotules: null,
@@ -423,7 +639,7 @@ function CompteurScreenForOwner({ ownerId }: { ownerId: string }) {
   })
 
   // MAX-opened species picker (toggles apply to all tranches)
-  const [maxMode, setMaxMode] = useState<Record<GroupKey, boolean>>({
+  const [maxMode, setMaxMode] = useState<Record<BatGroupKey, boolean>>({
     pipistrelles: false,
     murins: false,
     serotules: false,
@@ -465,14 +681,14 @@ function CompteurScreenForOwner({ ownerId }: { ownerId: string }) {
       if (!active) return
       if (!sess) { setLoadError('Session introuvable.'); setLoading(false); return }
       const cfg = getSiteConfig(sess.typeSite)
-      setPoint(pt)
+      const normalizedCounts = normalizePointCounts(pt.counts, pt.chouetteHulotte)
+      setPoint({ ...pt, counts: normalizedCounts, chouetteHulotte: hasOwlCall(normalizedCounts) })
       setSession(sess)
       setConfig(cfg)
       configRef.current = cfg
-      setCounts(pt.counts)
+      setCounts(normalizedCounts)
       setLocalisation(pt.localisation)
       setCommentaire(pt.commentaire)
-      setChouetteHulotte(pt.chouetteHulotte)
       if (pt.timerState) {
         const start = pt.timerState.pointStartTime ? new Date(pt.timerState.pointStartTime) : null
         const trancheStart = pt.timerState.trancheStartTime ? new Date(pt.timerState.trancheStartTime) : null
@@ -527,7 +743,7 @@ function CompteurScreenForOwner({ ownerId }: { ownerId: string }) {
       counts,
       localisation,
       commentaire,
-      chouetteHulotte,
+      chouetteHulotte: hasOwlCall(counts),
       nbEspeces: countSpecies(counts),
       timerState,
       updatedAt: new Date().toISOString(),
@@ -544,7 +760,6 @@ function CompteurScreenForOwner({ ownerId }: { ownerId: string }) {
     counts,
     localisation,
     commentaire,
-    chouetteHulotte,
     started,
     paused,
     finished,
@@ -565,7 +780,9 @@ function CompteurScreenForOwner({ ownerId }: { ownerId: string }) {
         if (next > configRef.current.nbTranches) {
           clearInterval(timerRef.current!)
           timerRef.current = null
+          const finishedAt = new Date().toISOString()
           setFinished(true)
+          setPoint((prev) => (prev ? { ...prev, heureFin: finishedAt, updatedAt: finishedAt } : prev))
           setDetailTranche({ pipistrelles: null, murins: null, serotules: null, autres: null })
           setMaxMode({ pipistrelles: false, murins: false, serotules: false, autres: false })
           announce('Fin du point')
@@ -577,10 +794,10 @@ function CompteurScreenForOwner({ ownerId }: { ownerId: string }) {
           setCurrentTranche(next)
           setTrancheStartTime(newStart)
           setTrancheElapsed(0)
-          const newDetail: Record<GroupKey, number | null> = {
+          const newDetail: Record<BatGroupKey, number | null> = {
             pipistrelles: null, murins: null, serotules: null, autres: null,
           }
-          for (const g of GROUP_KEYS) {
+          for (const g of BAT_GROUP_KEYS) {
             if (maxModeRef.current[g]) newDetail[g] = next
           }
           setDetailTranche(newDetail)
@@ -612,6 +829,7 @@ function CompteurScreenForOwner({ ownerId }: { ownerId: string }) {
     const updated: PointData = {
       ...point,
       heureDebut: now.toISOString(),
+      heureFin: null,
       statut: 'en_cours',
       updatedAt: now.toISOString(),
       timerState: {
@@ -671,7 +889,6 @@ function CompteurScreenForOwner({ ownerId }: { ownerId: string }) {
       setPoint(updated)
       setCounts(emptyCounts)
       setCommentaire('')
-      setChouetteHulotte(false)
     }
     setStarted(false)
     setPaused(false)
@@ -689,7 +906,7 @@ function CompteurScreenForOwner({ ownerId }: { ownerId: string }) {
 
   // ── Count handlers ────────────────────────────────────────────────────────
 
-  function handleAdd(group: GroupKey) {
+  function handleAdd(group: BatGroupKey) {
     pushSnapshot()
     const t = currentTrancheRef.current
     const g = counts[group]
@@ -698,13 +915,13 @@ function CompteurScreenForOwner({ ownerId }: { ownerId: string }) {
     setDetailTranche((prev) => ({ ...prev, [group]: t }))
   }
 
-  function handleRemoveTranche(group: GroupKey, tranche: number) {
+  function handleRemoveTranche(group: BatGroupKey, tranche: number) {
     pushSnapshot()
     setCounts((prev) => removeTranche(prev, group, tranche))
     setDetailTranche((prev) => ({ ...prev, [group]: null }))
   }
 
-  function handleAddTranche(group: GroupKey, tranche: number) {
+  function handleAddTranche(group: BatGroupKey, tranche: number) {
     const g = counts[group]
     if (g.trancheHistory.includes(tranche)) {
       if (detailTranche[group] === tranche) {
@@ -719,19 +936,24 @@ function CompteurScreenForOwner({ ownerId }: { ownerId: string }) {
     setDetailTranche((prev) => ({ ...prev, [group]: tranche }))
   }
 
-  function handleToggleSpecies(group: GroupKey, sp: string, tranche: number) {
+  function handleToggleSpecies(group: BatGroupKey, sp: string, tranche: number) {
     pushSnapshot()
     setCounts((prev) => toggleSpecies(prev, group, sp, tranche))
   }
 
-  function handleRemove(group: GroupKey) {
+  function handleExtraToggle(group: ExtraGroupKey, sp: string, checked: boolean) {
+    pushSnapshot()
+    setCounts((prev) => setSpeciesChecked(prev, group, sp, checked))
+  }
+
+  function handleRemove(group: BatGroupKey) {
     pushSnapshot()
     const tranche = currentTrancheRef.current
     setCounts((prev) => removeTranche(prev, group, tranche))
     setDetailTranche((prev) => ({ ...prev, [group]: null }))
   }
 
-  function handleGroupMax(group: GroupKey) {
+  function handleGroupMax(group: BatGroupKey) {
     if (maxMode[group]) {
       pushSnapshot()
       setMaxMode((prev) => ({ ...prev, [group]: false }))
@@ -744,6 +966,14 @@ function CompteurScreenForOwner({ ownerId }: { ownerId: string }) {
     setDetailTranche((prev) => ({ ...prev, [group]: currentTrancheRef.current }))
   }
 
+  function handleGroupMin(group: BatGroupKey) {
+    if (counts[group].total === 0 && counts[group].species.length === 0) return
+    pushSnapshot()
+    setCounts((prev) => clearGroup(prev, group))
+    setMaxMode((prev) => ({ ...prev, [group]: false }))
+    setDetailTranche((prev) => ({ ...prev, [group]: null }))
+  }
+
   async function handleValidate() {
     if (!point) return
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
@@ -751,14 +981,14 @@ function CompteurScreenForOwner({ ownerId }: { ownerId: string }) {
     const nbEspeces = countSpecies(counts)
     const updated: PointData = {
       ...point,
-      heureDebut: pointStartTime?.toISOString() ?? point.heureDebut,
-      heureFin: now.toISOString(),
+      heureDebut: point.heureDebut ?? pointStartTime?.toISOString() ?? null,
+      heureFin: point.heureFin ?? now.toISOString(),
       nbEspeces,
       statut: 'termine',
       counts,
       localisation,
       commentaire,
-      chouetteHulotte,
+      chouetteHulotte: hasOwlCall(counts),
       updatedAt: now.toISOString(),
       timerState: buildTimerState({
         started: true,
@@ -771,8 +1001,10 @@ function CompteurScreenForOwner({ ownerId }: { ownerId: string }) {
       }),
     }
     await updatePoint(ownerId, updated)
+    setPoint(updated)
     const allPoints = await getPointsBySession(ownerId, point.sessionId)
-    const next = allPoints.find((p) => p.numero === point.numero + 1)
+    const currentIndex = allPoints.findIndex((p) => p.id === point.id)
+    const next = currentIndex >= 0 ? allPoints[currentIndex + 1] : undefined
     router.push(next ? `/compteur?pointId=${next.id}` : '/points')
   }
 
@@ -928,7 +1160,7 @@ function CompteurScreenForOwner({ ownerId }: { ownerId: string }) {
 
       {/* ── Group cards ── */}
       <div className="grid grid-cols-2 gap-3 items-start">
-        {GROUP_KEYS.map((group) => {
+        {BAT_GROUP_KEYS.map((group) => {
           const canAdd = started && (finished || !counts[group].trancheHistory.includes(currentTranche))
           const canRemove = started && counts[group].trancheHistory.includes(currentTranche)
           return (
@@ -942,12 +1174,25 @@ function CompteurScreenForOwner({ ownerId }: { ownerId: string }) {
               onAdd={() => handleAdd(group)}
               onRemove={() => handleRemove(group)}
               onMax={() => handleGroupMax(group)}
+              onMin={() => handleGroupMin(group)}
               onAddTranche={(t) => handleAddTranche(group, t)}
               detailTranche={detailTranche[group]}
               onToggleSpecies={(sp, t) => handleToggleSpecies(group, sp, t)}
             />
           )
         })}
+      </div>
+
+      {/* ── Extra counters without tranches ── */}
+      <div className="grid grid-cols-2 gap-3 items-start">
+        {EXTRA_GROUP_KEYS.map((group) => (
+          <ExtraCounterCard
+            key={group}
+            groupKey={group}
+            count={counts[group]}
+            onToggle={(sp, checked) => handleExtraToggle(group, sp, checked)}
+          />
+        ))}
       </div>
 
       {/* ── Action buttons ── */}
@@ -1010,17 +1255,6 @@ function CompteurScreenForOwner({ ownerId }: { ownerId: string }) {
           className="w-full rounded-lg border border-foreground/8 bg-background px-3 py-2.5 text-sm text-foreground resize-none focus:outline-none focus:ring-1 focus:ring-foreground/30"
         />
       </div>
-
-      {/* ── Tawny owl call flag ── */}
-      <label className="flex items-center gap-2.5 rounded-xl border border-foreground/8 bg-background px-4 py-3 cursor-pointer select-none">
-        <input
-          type="checkbox"
-          checked={chouetteHulotte}
-          onChange={(e) => setChouetteHulotte(e.target.checked)}
-          className="w-4 h-4 rounded border-foreground/20 accent-foreground"
-        />
-        <span className="text-sm text-foreground/70">Cri(s) de Chouette hulotte</span>
-      </label>
 
       {/* ── Validate ── */}
       <button

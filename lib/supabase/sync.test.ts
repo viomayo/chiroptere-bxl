@@ -52,7 +52,7 @@ vi.mock('./client', () => ({
   }),
 }))
 
-import { buildLocalSnapshot, buildSyncConflict, clearStoredConflicts, deleteSessionFromSupabase, getStoredConflicts, mapSessionRow, pullAllSessionsForSupervisor, pullMySessions, rebuildCounts, resolveConflict, syncAll } from './sync'
+import { buildLocalSnapshot, buildSyncConflict, clearStoredConflicts, deleteSessionFromSupabase, fetchSupervisorStatus, getStoredConflicts, mapSessionRow, pullAllSessionsForSupervisor, pullMySessions, rebuildCounts, resolveConflict, syncAll } from './sync'
 import { defaultCounts } from '@/lib/idb'
 
 const session: SessionData = { id: '00000000-0000-0000-0000-000000000001', ownerId: 'a', typeSite: 'Parc', nomSite: 'Test', acronyme: 'T', debutSession: '2026-08-05T20:00:00Z', finSession: '', compteurPrincipal: 'Alice', autresCompteurs: '', nbPointsEcoute: 1, detecteurs: [], commentaire: '', createdAt: '2026-08-05T20:00:00Z', updatedAt: '2026-08-05T21:00:00Z', syncedAt: '2026-08-05T20:30:00Z', dirty: true, lastSyncedRemoteRevision: 4, syncError: null }
@@ -221,6 +221,26 @@ describe('snapshot synchronization', () => {
     mocks.getPointsBySession.mockResolvedValue([counted])
     const snapshot = await buildLocalSnapshot(session)
     expect(snapshot.points[0]).toMatchObject({ chouette_hulotte: true })
+  })
+
+  it('confirms the supervisor role only on an explicit true answer', async () => {
+    mocks.rpc.mockResolvedValue({ data: true, error: null })
+    expect(await fetchSupervisorStatus()).toBe(true)
+    expect(mocks.rpc).toHaveBeenCalledWith('current_user_is_supervisor')
+
+    mocks.rpc.mockResolvedValue({ data: false, error: null })
+    expect(await fetchSupervisorStatus()).toBe(false)
+
+    mocks.rpc.mockResolvedValue({ data: null, error: { message: 'offline' } })
+    expect(await fetchSupervisorStatus()).toBe(false)
+
+    mocks.rpc.mockResolvedValue({ data: 'true', error: null })
+    expect(await fetchSupervisorStatus()).toBe(false)
+  })
+
+  it('never grants the supervisor role when the RPC throws', async () => {
+    mocks.rpc.mockRejectedValue(new Error('network'))
+    expect(await fetchSupervisorStatus()).toBe(false)
   })
 
   it('stores and clears conflict state', () => {

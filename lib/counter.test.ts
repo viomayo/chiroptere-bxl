@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { addTranche, buildTimerState, cloneCounts, countSpecies, fillGroup, removeTranche, toggleSpecies } from './counter'
+import { addTranche, adjustSpeciesCount, buildTimerState, cloneCounts, countSpecies, fillGroup, removeTranche, toggleSpecies } from './counter'
 import { defaultCounts } from './idb'
 
 describe('counter domain', () => {
@@ -36,6 +36,27 @@ describe('counter domain', () => {
     const clone = cloneCounts(source)
     clone.pipistrelles.species[0].trancheHistory.push(2)
     expect(source.pipistrelles.species[0].trancheHistory).toEqual([1])
+  })
+
+  it('increments and decrements species without tranches', () => {
+    let next = adjustSpeciesCount(counts, 'oiseaux', 'Chouette hulotte', 1)
+    next = adjustSpeciesCount(next, 'oiseaux', 'Chouette hulotte', 2)
+    expect(next.oiseaux).toEqual({
+      total: 3,
+      trancheHistory: [],
+      species: [{ name: 'Chouette hulotte', count: 3, trancheHistory: [] }],
+    })
+    next = adjustSpeciesCount(next, 'oiseaux', 'Chouette hulotte', -2)
+    expect(next.oiseaux.total).toBe(1)
+    next = adjustSpeciesCount(next, 'oiseaux', 'Chouette hulotte', -1)
+    expect(next.oiseaux).toEqual({ total: 0, trancheHistory: [], species: [] })
+  })
+
+  it('keeps the insect counter independent from bat tranches', () => {
+    const next = adjustSpeciesCount(counts, 'insectes', 'Lampyris noctiluca', 2)
+    expect(next.insectes.total).toBe(2)
+    expect(next.pipistrelles.total).toBe(0)
+    expect(next.insectes.species[0]).toEqual({ name: 'Lampyris noctiluca', count: 2, trancheHistory: [] })
   })
 
   it('serializes timer state or returns null before start', () => {

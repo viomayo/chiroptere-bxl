@@ -55,6 +55,7 @@ const withSerwist = withSerwistInit({
 })
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ['127.0.0.1', 'localhost'],
   generateBuildId: async () => shellVersion,
   env: {
     NEXT_PUBLIC_OFFLINE_SHELL_VERSION: shellVersion,

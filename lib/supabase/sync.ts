@@ -12,13 +12,15 @@ import {
   saveRemoteSession,
   saveSession,
   saveTombstone,
+  normalizePointCounts,
+  CHOUETTE_HULOTTE,
   type PointCounts,
   type PointData,
   type SessionData,
 } from '@/lib/idb'
 
 type GroupKey = keyof PointCounts
-const GROUP_KEYS: GroupKey[] = ['pipistrelles', 'murins', 'serotules', 'autres']
+const GROUP_KEYS: GroupKey[] = ['pipistrelles', 'murins', 'serotules', 'autres', 'oiseaux', 'mammiferes', 'insectes', 'amphibiens']
 const CONFLICTS_KEY = 'chiroptere-bxl-conflicts'
 export const SYNC_STATE_EVENT = 'chiroptere-sync-state'
 
@@ -169,24 +171,30 @@ async function fetchRemoteSnapshot(ownerId: string, sessionId: string): Promise<
     obsByPoint.set(observation.point_id as string, list)
   }
   const session = mapSessionRow(ownerId, row as Record<string, unknown>)
-  const points = (pointRows as Record<string, unknown>[]).map((point) => ({
-    id: point.id as string,
-    ownerId,
-    sessionId,
-    numero: point.numero as number,
-    heureDebut: (point.heure_debut as string) || null,
-    heureFin: (point.heure_fin as string) || null,
-    nbEspeces: Number(point.nb_especes ?? 0),
-    statut: (point.statut as PointData['statut']) || 'non_demarre',
-    counts: rebuildCounts(obsByPoint.get(point.id as string) ?? []),
-    localisation: (point.localisation as string) || '',
-    commentaire: (point.commentaire as string) || '',
-    timerState: null,
-    coordX: (point.coord_x as number | null) ?? null,
-    coordY: (point.coord_y as number | null) ?? null,
-    chouetteHulotte: point.chouette_hulotte === true,
-    updatedAt: (point.updated_at as string) || session.updatedAt,
-  }))
+  const points: PointData[] = (pointRows as Record<string, unknown>[]).map((point) => {
+    const counts = normalizePointCounts(
+      rebuildCounts(obsByPoint.get(point.id as string) ?? []),
+      point.chouette_hulotte === true,
+    )
+    return {
+      id: point.id as string,
+      ownerId,
+      sessionId,
+      numero: point.numero as number,
+      heureDebut: (point.heure_debut as string) || null,
+      heureFin: (point.heure_fin as string) || null,
+      nbEspeces: Number(point.nb_especes ?? 0),
+      statut: (point.statut as PointData['statut']) || 'non_demarre',
+      counts,
+      localisation: (point.localisation as string) || '',
+      commentaire: (point.commentaire as string) || '',
+      timerState: null,
+      coordX: (point.coord_x as number | null) ?? null,
+      coordY: (point.coord_y as number | null) ?? null,
+      chouetteHulotte: counts.oiseaux.species.some((item) => item.name === CHOUETTE_HULOTTE),
+      updatedAt: (point.updated_at as string) || session.updatedAt,
+    }
+  })
   return { session, points }
 }
 
@@ -336,6 +344,19 @@ export async function resolveConflict(sessionId: string, resolution: 'local' | '
 export async function deleteSessionFromSupabase(sessionId: string): Promise<'ok' | 'error'> {
   const { error } = await createClient().from('sessions').delete().eq('id', sessionId)
   return error ? 'error' : 'ok'
+}
+
+/**
+ * Confirme le rôle superviseur auprès de Postgres. Toute erreur réseau ou
+ * réponse inattendue vaut absence de droit : l'interface reste masquée.
+ */
+export async function fetchSupervisorStatus(): Promise<boolean> {
+  try {
+    const { data, error } = await createClient().rpc('current_user_is_supervisor')
+    return !error && data === true
+  } catch {
+    return false
+  }
 }
 
 async function fetchProfilesByUsers(userIds: string[]): Promise<Map<string, string>> {
