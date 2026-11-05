@@ -24,7 +24,7 @@ export interface SessionExport {
   points: PointData[]
 }
 
-const CSV_HEADER = ['session_id', 'user_id', 'user_name', 'site_nom', 'site_acronyme', 'type_site', 'debut_session', 'fin_session', 'compteur_principal', 'autres_compteurs', 'detecteurs', 'point', 'heure_debut', 'heure_fin', 'nb_especes', 'statut', 'point_commentaire', 'coord_x', 'coord_y', 'niveau', 'groupe', 'espece', 'total', 'tranches', 'chouette_hulotte'].join(';')
+const CSV_HEADER = ['session_id', 'user_id', 'user_name', 'site_nom', 'site_acronyme', 'type_site', 'annee', 'debut_session', 'fin_session', 'compteur_principal', 'autres_compteurs', 'detecteurs', 'point', 'heure_debut', 'heure_fin', 'nb_especes', 'statut', 'point_commentaire', 'coord_x', 'coord_y', 'niveau', 'groupe', 'espece', 'total', 'tranches', 'chouette_hulotte'].join(';')
 
 const LAMBERT_72_CRS = { type: 'name', properties: { name: 'EPSG:31370' } }
 
@@ -59,7 +59,7 @@ export function buildSessionExports(sessions: SessionData[], points: PointData[]
 function csvRows(session: SessionData, points: PointData[], user?: ExportUser): string[] {
   return points.flatMap((point) => {
     const chouetteFlag = point.chouetteHulotte ? '1' : '0'
-    const base = [session.id, user?.id ?? '', user?.name ?? '', session.nomSite, session.acronyme, session.typeSite, session.debutSession, session.finSession, session.compteurPrincipal, session.autresCompteurs, session.detecteurs.join('|'), `${session.acronyme}-${String(point.numero).padStart(2, '0')}`, point.heureDebut, point.heureFin, point.nbEspeces, point.statut, point.commentaire, point.coordX, point.coordY]
+    const base = [session.id, user?.id ?? '', user?.name ?? '', session.nomSite, session.acronyme, session.typeSite, session.annee, session.debutSession, session.finSession, session.compteurPrincipal, session.autresCompteurs, session.detecteurs.join('|'), `${session.acronyme}-${String(point.numero).padStart(2, '0')}`, point.heureDebut, point.heureFin, point.nbEspeces, point.statut, point.commentaire, point.coordX, point.coordY]
     const observations: string[] = []
     for (const group of GROUP_KEYS) {
       const count = point.counts[group]
@@ -140,6 +140,7 @@ function geoJSONFeatures(session: SessionData, points: PointData[], exportedAt: 
         site_nom: session.nomSite,
         site_acronyme: session.acronyme,
         type_site: session.typeSite,
+        annee: session.annee,
         debut_session: session.debutSession,
         fin_session: session.finSession,
         compteur_principal: session.compteurPrincipal,

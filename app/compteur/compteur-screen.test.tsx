@@ -37,6 +37,7 @@ vi.mock('@/lib/site-config', () => ({
 const session: SessionData = {
   id: 'session-1',
   ownerId: 'me',
+  annee: 1,
   typeSite: 'Parc',
   nomSite: 'Bois',
   acronyme: 'BT',
@@ -116,6 +117,8 @@ describe('CompteurScreen timer times', () => {
     const started = updatesWith((p) => p.statut === 'en_cours' && p.heureDebut !== null)[0]
     expect(started).toBeDefined()
     expect(started.heureFin).toBeNull()
+    expect(started.heureDebut).toBe('2026-08-05T22:00:03.000+02:00')
+    expect(new Date(started.heureDebut!).toISOString()).toBe('2026-08-05T20:00:03.000Z')
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2000)
@@ -127,7 +130,8 @@ describe('CompteurScreen timer times', () => {
     const finished = updatesWith((p) => p.heureFin !== null)[0]
     expect(finished).toBeDefined()
     expect(finished.heureDebut).toBe(started.heureDebut)
-    expect(finished.heureFin).not.toBe(started.heureDebut)
+    expect(finished.heureFin).toBe('2026-08-05T22:00:05.000+02:00')
+    expect(new Date(finished.heureFin!).toISOString()).toBe('2026-08-05T20:00:05.000Z')
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'modification après coup' } })
     await act(async () => {

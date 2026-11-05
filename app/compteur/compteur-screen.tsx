@@ -36,6 +36,7 @@ import {
   EXTRA_GROUP_COLORS,
   EXTRA_GROUP_LABELS,
 } from '@/lib/extra-species'
+import { toBelgianISOString } from '@/lib/belgian-time'
 import { ChevronDown, Pause, Play, RotateCcw, Undo2, Eye, EyeOff } from 'lucide-react'
 import { useOfflineAuth } from '@/app/components/offline-auth-provider'
 
@@ -74,9 +75,11 @@ const SPECIES_LABELS: Record<string, string> = {
   'M. de Daubenton': 'Murin de Daubenton',
   'M. de Bechstein': 'Murin de Bechstein',
   'Grand Murin': 'Grand Murin',
+  'Murin sp': 'Murin sp.',
   'Autres murins': 'Autres murins',
   'Oreillard gris': 'Oreillard gris',
   'Oreillard roux': 'Oreillard roux',
+  'Oreillard sp': 'Oreillard sp.',
   'Autres': 'Autres',
 }
 
@@ -90,13 +93,14 @@ const SPECIES: Record<BatGroupKey, string[]> = {
   murins: [
     'M. de Brandt',
     'M. à moustaches',
-    "M. d'Alcathoé",
+    "M. d'Alcathoë",
     'M. à oreilles échancrées',
     'M. de Natterer',
     'M. des marais',
     'M. de Daubenton',
     'M. de Bechstein',
     'Grand Murin',
+    'Murin sp',
   ],
   serotules: [
     'Sérotine commune',
@@ -106,6 +110,7 @@ const SPECIES: Record<BatGroupKey, string[]> = {
   autres: [
     'Oreillard gris',
     'Oreillard roux',
+    'Oreillard sp',
     'Autres',
   ],
 }
@@ -229,7 +234,7 @@ function InlineSpeciesPicker({
         {SPECIES[groupKey].map((sp) => {
           if (sp === 'Autres') {
             const customEntry = count.species.find(
-              (s) => s.name !== 'Oreillard gris' && s.name !== 'Oreillard roux' && s.trancheHistory.includes(tranche)
+              (s) => s.name !== 'Oreillard gris' && s.name !== 'Oreillard roux' && s.name !== 'Oreillard sp' && s.trancheHistory.includes(tranche)
             )
             const isChecked = !!customEntry
             return (
@@ -780,9 +785,10 @@ function CompteurScreenForOwner({ ownerId }: { ownerId: string }) {
         if (next > configRef.current.nbTranches) {
           clearInterval(timerRef.current!)
           timerRef.current = null
-          const finishedAt = new Date().toISOString()
+          const finishedNow = new Date()
+          const finishedAt = toBelgianISOString(finishedNow)
           setFinished(true)
-          setPoint((prev) => (prev ? { ...prev, heureFin: finishedAt, updatedAt: finishedAt } : prev))
+          setPoint((prev) => (prev ? { ...prev, heureFin: finishedAt, updatedAt: finishedNow.toISOString() } : prev))
           setDetailTranche({ pipistrelles: null, murins: null, serotules: null, autres: null })
           setMaxMode({ pipistrelles: false, murins: false, serotules: false, autres: false })
           announce('Fin du point')
@@ -828,7 +834,7 @@ function CompteurScreenForOwner({ ownerId }: { ownerId: string }) {
     const now = new Date()
     const updated: PointData = {
       ...point,
-      heureDebut: now.toISOString(),
+      heureDebut: toBelgianISOString(now),
       heureFin: null,
       statut: 'en_cours',
       updatedAt: now.toISOString(),
@@ -981,8 +987,8 @@ function CompteurScreenForOwner({ ownerId }: { ownerId: string }) {
     const nbEspeces = countSpecies(counts)
     const updated: PointData = {
       ...point,
-      heureDebut: point.heureDebut ?? pointStartTime?.toISOString() ?? null,
-      heureFin: point.heureFin ?? now.toISOString(),
+      heureDebut: point.heureDebut ?? (pointStartTime ? toBelgianISOString(pointStartTime) : null),
+      heureFin: point.heureFin ?? toBelgianISOString(now),
       nbEspeces,
       statut: 'termine',
       counts,

@@ -55,6 +55,7 @@ function session(id: string, ownerId: string, extra: Partial<SessionData> = {}):
   return {
     id,
     ownerId,
+    annee: 1,
     typeSite: 'Parc',
     nomSite: `Site ${id}`,
     acronyme: id.toUpperCase(),

@@ -1,4 +1,5 @@
 import { createClient } from './client'
+import { normalizeBelgianISOString } from '@/lib/belgian-time'
 import {
   clearRemoteData,
   defaultCounts,
@@ -86,6 +87,7 @@ export async function buildLocalSnapshot(session: SessionData): Promise<SessionS
   return {
     session: {
       id: session.id,
+      annee: session.annee,
       type_site: session.typeSite,
       nom_site: session.nomSite,
       acronyme: session.acronyme,
@@ -120,6 +122,7 @@ export function mapSessionRow(ownerId: string, row: Record<string, unknown>): Se
   return {
     id: row.id as string,
     ownerId,
+    annee: typeof row.annee === 'number' ? row.annee : 1,
     typeSite: row.type_site as string,
     nomSite: row.nom_site as string,
     acronyme: row.acronyme as string,
@@ -181,8 +184,8 @@ async function fetchRemoteSnapshot(ownerId: string, sessionId: string): Promise<
       ownerId,
       sessionId,
       numero: point.numero as number,
-      heureDebut: (point.heure_debut as string) || null,
-      heureFin: (point.heure_fin as string) || null,
+      heureDebut: normalizeBelgianISOString(point.heure_debut as string | null),
+      heureFin: normalizeBelgianISOString(point.heure_fin as string | null),
       nbEspeces: Number(point.nb_especes ?? 0),
       statut: (point.statut as PointData['statut']) || 'non_demarre',
       counts,

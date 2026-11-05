@@ -4,6 +4,7 @@
 
 - [fait] Parcours terrain : sessions, points prédéfinis, compteur, timer, espèces, annulation et révision.
 - [fait] Horaires de point fiables : `heure_debut` fixée au lancement du minuteur, `heure_fin` fixée à sa terminaison et exportées telles quelles ; les modifications ultérieures (identification ou autre) et la validation ne les écrasent plus, seul un reset suivi d'un nouveau lancement les remet à jour.
+- [fait] Heures de début et de fin de point enregistrées en heure belge avec offset ISO (`+01:00` en hiver, `+02:00` en été), affichées en heure belge et normalisées à la relecture des points distants.
 - [fait] Persistance IndexedDB avec sauvegarde automatique et isolation par utilisateur.
 - [fait] Profil d'identité offline actif persistant, remplaçable ou désactivable sans purge des données métier.
 - [fait] Provider client global distinguant identité Supabase vérifiée, profil offline, session expirée et absence d'identité, sans autorisation superviseur locale.
@@ -44,6 +45,11 @@
 - [fait] Répartition des contacts du tableau de bord étendue à Oiseaux, Autres mammifères, Insectes et Amphibiens.
 - [fait] Compteurs secondaires affichés dans la couleur beige de base de l'interface.
 - [fait] Caches de points distants normalisés à la lecture, avec reprise de l'ancien groupe `reptiles` vers `amphibiens`.
+- [fait] Sites aquatiques de la campagne Année 2 ajoutés aux points prédéfinis avec leurs descriptions : Bergoje, Blankedelle, Clos des Chênes, Enfants Noyés, Ermite amont/aval, Fer à Cheval, Kinsendael, Moulin, Étang Sec, Silex, 3 Fontaines, Tournay-Solvay, Plateau Engeland et Sauvagère.
+- [fait] Sélection de l'année de campagne (Année 1, 2 ou 3) avant le type de site ; les sites proposés sont filtrés par année.
+- [fait] Transects forestiers de la campagne Année 2 ajoutés avec leurs noms et descriptions : Blankedelle, Bunzingen, Trois Couleurs, Parc des Sources, Tambour, Grasdelle, Grippendelle, Korporaal, Lindekemaele et Vuilbeek (sans coordonnées pour l'instant).
+- [fait] Champ `annee` persisté dans IndexedDB, synchronisé via `sync_session_snapshot` et inclus dans les exports CSV et GeoJSON.
+- [fait] Sites de la campagne Année 1 complétés : 13 plans d'eau et 10 transects forestiers, avec coordonnées Lambert 72 et descriptions disponibles (328 points), fusionnés sans écraser les points des autres campagnes.
 
 ## Déploiement
 
@@ -54,9 +60,17 @@
 - [fait] Corriger dans le dashboard Supabase la « Site URL » (redirigée en erreur vers `http://localhost:3000`) et vérifier le secret Google du provider, puis lever l'erreur affichée sur `/auth/auth-code-error` à l'occasion d'un login réel (fait le 14 août 2026 : Site URL = `https://chiroptere-bxl.vercel.app`, Redirect URL ajoutée, login Google réel concluant).
 - [fait] Exécuter une recette réelle sur iOS Safari et Android installés en PWA (fait le 14 août 2026, version `71dd5d1` déployée sur Vercel, login et usage mobile concluants).
 - [fait] Appliquer manuellement les migrations `202608060001_owl_call.sql` (colonne `chouette_hulotte`) et `202608140001_profiles.sql` (table `profiles`) au Supabase distant (fait le 14 août 2026, avec `supabase link`, dry-run puis push, et vérification du schéma distant : colonne, table `profiles` backfillée, trigger `trg_profiles_on_signup` actif).
+- [fait] Rédiger la migration `202611030001_session_annee.sql` (colonne `annee` sur `sessions`, contrainte 1–3 et RPC `sync_session_snapshot` mise à jour) dans le dépôt.
+- [à faire] Appliquer manuellement `202611030001_session_annee.sql` au Supabase distant après sauvegarde vérifiée et validation du propriétaire.
 
 ## Évolutions produit possibles
 
+- [à faire] Ajouter les coordonnées Lambert 72 des transects terrestres de la campagne Année 2, puis les étangs Rouge-Cloître (2 & 1, 3, 4, 5) avec leurs coordonnées.
+- [à faire] Vérifier les points manquants des sites de l'Année 3 (CAM 17 et 20, NEE 12) et les compléter si nécessaire.
 - [à faire] Ajouter une observabilité distante des erreurs de synchronisation si le projet choisit un service de suivi.
 
 Les éléments de cette section sont planifiés et ne doivent pas être présentés comme implémentés.
+
+## Journal
+
+- 2026-11-05 : livraison de la vague « campagnes & heure belge » — sélection Année 1/2/3, 932 points prédéfinis (328/285/319), horaires de point en heure belge avec offset, `Murin sp.`/`Oreillard sp.`, persistance et export de `annee`, migration `202611030001_session_annee.sql` prête mais non appliquée au distant.

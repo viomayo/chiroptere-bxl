@@ -140,8 +140,8 @@ async function readLocalData(page: Page) {
 async function createSessionThroughUi(page: Page) {
   await page.goto('/site')
   await expect(page.getByRole('heading', { name: 'Nouvelle session' })).toBeVisible()
-  await page.locator('select').nth(0).selectOption({ index: 1 })
   await page.locator('select').nth(1).selectOption({ index: 1 })
+  await page.locator('select').nth(2).selectOption({ index: 1 })
   await page.locator('input[type="number"]').fill('1')
   await page.getByPlaceholder('Notes, observations particulières...').fill('Session créée entièrement hors ligne')
   await page.getByRole('button', { name: 'Enregistrer la session' }).click()

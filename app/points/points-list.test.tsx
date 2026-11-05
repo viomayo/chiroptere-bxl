@@ -44,6 +44,7 @@ function session(ownerId: string): SessionData {
   return {
     id: `session-${ownerId}`,
     ownerId,
+    annee: 1,
     typeSite: 'Parc',
     nomSite: `Site ${ownerId}`,
     acronyme: ownerId.toUpperCase(),

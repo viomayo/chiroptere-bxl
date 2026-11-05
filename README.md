@@ -5,9 +5,9 @@ Application PWA mobile-first pour les relevés de chauves-souris à Bruxelles. E
 ## Fonctions disponibles
 
 - Authentification Google avec Supabase Auth. Les shells terrain sont publics et statiques ; les données locales sont verrouillées par l'identité cliente et les données distantes par Supabase Auth/RLS.
-- Création de sessions et 319 points prédéfinis avec coordonnées et description.
-- Compteur chronométré par tranches, groupes et espèces, avec pause, reprise, MAX (petit bouton rond à droite du nom de chaque groupe), MIN (petit bouton rond à gauche qui remet le groupe à zéro), annulation et révision. L'heure de début (`heure_debut`) est fixée au lancement du minuteur et l'heure de fin (`heure_fin`) à sa terminaison ; modifier ensuite le point (identification des espèces ou autre) puis le valider ne change pas ces heures, seul un reset suivi d'un nouveau lancement les met à jour.
-- Espèces proposées par groupe : Pipistrelles (commune, de Nathusius, de Nathusius/Kuhl, pygmée), Murins (de Brandt, à moustaches, d'Alcathoé, à oreilles échancrées, de Natterer, des marais, de Daubenton, de Bechstein, Grand Murin), Sérotines/Noctules (Sérotine commune, Noctule de Leisler, Noctule commune) et Oreillards (gris, roux). Le groupe « Autres » accepte en plus une identification libre saisie au clavier.
+- Création de sessions par année de campagne (Année 1, 2 ou 3) puis par type de site, avec 932 points prédéfinis : 328 pour l'Année 1 (13 plans d'eau et 10 transects forestiers, avec coordonnées Lambert 72 et descriptions disponibles), 285 pour l'Année 2 (plans d'eau décrits, transects sans coordonnées) et 319 pour l'Année 3 (sites déjà saisis, à compléter).
+- Compteur chronométré par tranches, groupes et espèces, avec pause, reprise, MAX (petit bouton rond à droite du nom de chaque groupe), MIN (petit bouton rond à gauche qui remet le groupe à zéro), annulation et révision. L'heure de début (`heure_debut`) est fixée au lancement du minuteur et l'heure de fin (`heure_fin`) à sa terminaison ; ces heures sont enregistrées en heure belge avec l'offset ISO correspondant (UTC+1 en hiver, UTC+2 en été), affichées en heure belge et normalisées en heure belge à la relecture des points distants. Modifier ensuite le point (identification des espèces ou autre) puis le valider ne change pas ces heures, seul un reset suivi d'un nouveau lancement les met à jour.
+- Espèces proposées par groupe : Pipistrelles (commune, de Nathusius, de Nathusius/Kuhl, pygmée), Murins (de Brandt, à moustaches, d'Alcathoé, à oreilles échancrées, de Natterer, des marais, de Daubenton, de Bechstein, Grand Murin, Murin sp.), Sérotines/Noctules (Sérotine commune, Noctule de Leisler, Noctule commune) et Oreillards (gris, roux, Oreillard sp.). Le groupe « Autres » accepte en plus une identification libre saisie au clavier.
 - Quatre compteurs sans tranches, de la même taille que les compteurs à tranches, présentés en cases à cocher et repliés derrière une flèche : « Oiseaux » (Chouette hulotte, Chouette effraie, Chevêche d'Athéna, Hibou moyen-duc), « Autres mammifères » (Chevreuil d'Europe, Hérisson commun, Renard roux, Fouine, Sanglier, Lérot), « Insectes » (vers luisants, orthoptères communs et orthoptères exceptionnels, regroupés en sections dépliables) et « Amphibiens » (Grenouille rousse, Grenouille verte, Crapaud commun, Salamandre tachetée, Triton alpestre, Triton ponctué, Triton palmé). L'ancienne case « Cri(s) de Chouette hulotte » est reprise dans le compteur « Oiseaux » ; les anciennes données sont migrées à la lecture. Ces compteurs secondaires utilisent la couleur beige de base de l'interface.
 - Répartition des contacts du tableau de bord par groupe, y compris Oiseaux, Autres mammifères, Insectes et Amphibiens.
 - Historique des sessions sur le tableau de bord : les 5 plus récentes sont affichées, les suivantes se déploient via « Voir plus » (et se replient via « Voir moins »).
@@ -21,7 +21,7 @@ Application PWA mobile-first pour les relevés de chauves-souris à Bruxelles. E
 - Cache superviseur local séparé par compte. La vue « Données des autres utilisateurs » n'apparaît qu'après confirmation en ligne du rôle superviseur via la fonction contrôlée `current_user_is_supervisor()` : aucun droit n'est déduit localement, et la section disparaît dès que l'identité n'est plus vérifiée ou que le réseau est coupé. Les points distants sont normalisés à la lecture, avec reprise de l'ancien groupe `reptiles` vers `amphibiens`.
 - Profil utilisateur contrôlé : table `profiles` préremplie au premier sign-in (nom Google), renommable depuis le tableau de bord en ligne, et noms affichés dans la vue superviseur à la place de l'identifiant tronqué.
 - Export agrégé de toutes les données de l'utilisateur courant en CSV, JSON et GeoJSON depuis le tableau de bord (section « Mes données »).
-- Exports CSV et JSON (avec `user_id`/`user_name`) depuis la page des points d'une session, et pour les sessions distantes de chaque utilisateur dans la vue superviseur. Le CSV est encodé en UTF-8 avec BOM et séparé par des points-virgules pour s'ouvrir correctement dans Excel (colonnes et accents préservés), et inclut la colonne `chouette_hulotte` (dérivée du compteur « Oiseaux »). Export GeoJSON d'une FeatureCollection déclarant la CRS Lambert 72 (`EPSG:31370`) avec les coordonnées brutes des points ; les points sans coordonnées sont conservés avec `geometry: null`.
+- Exports CSV et JSON (avec `user_id`/`user_name`) depuis la page des points d'une session, et pour les sessions distantes de chaque utilisateur dans la vue superviseur. Le CSV est encodé en UTF-8 avec BOM et séparé par des points-virgules pour s'ouvrir correctement dans Excel (colonnes et accents préservés), et inclut les colonnes `annee` et `chouette_hulotte` (dérivée du compteur « Oiseaux »). Export GeoJSON d'une FeatureCollection déclarant la CRS Lambert 72 (`EPSG:31370`) avec les coordonnées brutes des points ; les points sans coordonnées sont conservés avec `geometry: null`.
 - PWA installable avec précache Serwist versionné des quatre shells terrain et page de diagnostic `/sw-status`. Une seule ouverture en ligne prépare `/`, `/site`, `/points` et `/compteur` ; les query strings réutilisent le shell canonique sans modifier l'URL visible.
 - Indicateur discret de disponibilité terrain : « Prêt hors ligne » n'apparaît qu'après vérification par le Service Worker de la version et des quatre shells, indépendamment de l'état de synchronisation des relevés.
 - Favicon du navigateur basé sur `icon-512.png` (fond noir), régénéré en 16×16 et 32×32.
@@ -85,11 +85,12 @@ Le schéma versionné se trouve dans `supabase/migrations/`. Les migrations ajou
 - fonction contrôlée `current_user_is_supervisor()` ;
 - révision agrégée des sessions ;
 - RPC transactionnelle `sync_session_snapshot()` ;
+- colonne `annee` sur les sessions (campagne 1, 2 ou 3, contrainte entre 1 et 3) ;
 - colonne `chouette_hulotte` sur les points (cri de Chouette hulotte) ;
 - table `profiles` (nom contrôlé de l'utilisateur, prérempli au premier sign-in, modifiable par son propriétaire et lisible par les superviseurs) ;
 - contraintes uniques et seed espèces idempotent.
 
-Toutes les migrations ont été appliquées manuellement au projet distant (dernière application le 14 août 2026 : `202608060001_owl_call.sql` et `202608140001_profiles.sql`, après `supabase link`, dry-run et vérification du schéma distant). Pour une prochaine migration :
+Les migrations jusqu'au 14 août 2026 ont été appliquées manuellement au projet distant (`202608060001_owl_call.sql` et `202608140001_profiles.sql`, après `supabase link`, dry-run et vérification du schéma distant). La migration `202611030001_session_annee.sql` est rédigée dans le dépôt et reste à appliquer au distant. Pour une prochaine migration :
 
 ```bash
 supabase start
@@ -117,6 +118,10 @@ Après authentification en ligne, l'interface déclenche automatiquement `PREPAR
 Une déconnexion volontaire verrouille immédiatement l'interface, désactive le profil offline avant de tenter la déconnexion Supabase et conserve les relevés, conflits et suppressions en attente. Une panne réseau ordinaire ne désactive pas le profil offline.
 
 La synchronisation automatique ne démarre qu'après confirmation distante de l'identité. Au retour du réseau, le provider revalide d'abord Supabase ; les états `offline` et `expired` ne déclenchent aucun appel métier distant. Les sessions `dirty`, tombstones, révisions et conflits suivent ensuite exactement le même flux que le bouton Sync.
+
+## Journal
+
+- 2026-11-05 — Campagnes 1/2/3, 932 points prédéfinis (328/285/319), horaires de point en heure belge avec offset, `Murin sp.`/`Oreillard sp.`, champ `annee` persisté et exporté. Migration `202611030001_session_annee.sql` prête, à appliquer au distant.
 
 ## Démo et auteurs
 

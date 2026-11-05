@@ -55,7 +55,7 @@ vi.mock('./client', () => ({
 import { buildLocalSnapshot, buildSyncConflict, clearStoredConflicts, deleteSessionFromSupabase, fetchSupervisorStatus, getStoredConflicts, mapSessionRow, pullAllSessionsForSupervisor, pullMySessions, rebuildCounts, resolveConflict, syncAll } from './sync'
 import { defaultCounts } from '@/lib/idb'
 
-const session: SessionData = { id: '00000000-0000-0000-0000-000000000001', ownerId: 'a', typeSite: 'Parc', nomSite: 'Test', acronyme: 'T', debutSession: '2026-08-05T20:00:00Z', finSession: '', compteurPrincipal: 'Alice', autresCompteurs: '', nbPointsEcoute: 1, detecteurs: [], commentaire: '', createdAt: '2026-08-05T20:00:00Z', updatedAt: '2026-08-05T21:00:00Z', syncedAt: '2026-08-05T20:30:00Z', dirty: true, lastSyncedRemoteRevision: 4, syncError: null }
+const session: SessionData = { id: '00000000-0000-0000-0000-000000000001', ownerId: 'a', annee: 1, typeSite: 'Parc', nomSite: 'Test', acronyme: 'T', debutSession: '2026-08-05T20:00:00Z', finSession: '', compteurPrincipal: 'Alice', autresCompteurs: '', nbPointsEcoute: 1, detecteurs: [], commentaire: '', createdAt: '2026-08-05T20:00:00Z', updatedAt: '2026-08-05T21:00:00Z', syncedAt: '2026-08-05T20:30:00Z', dirty: true, lastSyncedRemoteRevision: 4, syncError: null }
 const point: PointData = { id: `${session.id}-p1`, ownerId: 'a', sessionId: session.id, numero: 1, heureDebut: null, heureFin: null, nbEspeces: 0, statut: 'non_demarre', counts: defaultCounts(), localisation: '', commentaire: '', timerState: null, coordX: null, coordY: null, chouetteHulotte: false, updatedAt: session.updatedAt }
 
 describe('snapshot synchronization', () => {

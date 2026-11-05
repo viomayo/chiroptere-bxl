@@ -6,6 +6,7 @@ import { getSessions, getSessionById, initSessionPoints, getRemoteSessionById, g
 import { ChevronRight, Download, Eye } from 'lucide-react'
 import { downloadText, sessionToCSV, sessionToGeoJSON, sessionToJSON, type ExportUser } from '@/lib/exports'
 import { EXTRA_GROUP_COLORS } from '@/lib/extra-species'
+import { formatBelgianTime } from '@/lib/belgian-time'
 import { useOfflineAuth } from '@/app/components/offline-auth-provider'
 
 type Statut = PointData['statut']
@@ -49,9 +50,7 @@ const STATUT_TEXT: Record<Statut, string> = {
 }
 
 function formatTime(iso: string | null): string {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  return d.toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' })
+  return formatBelgianTime(iso)
 }
 
 function getGroupTotals(counts: PointCounts): { key: GroupKey; label: string; total: number }[] {

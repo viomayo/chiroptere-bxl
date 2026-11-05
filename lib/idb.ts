@@ -1,4 +1,5 @@
 import { MAMMAL_SPECIES } from './extra-species'
+import { normalizeBelgianISOString } from './belgian-time'
 
 const DB_NAME = 'chiroptere-bxl'
 const DB_VERSION = 6
@@ -27,6 +28,7 @@ interface StoredOfflineProfile extends OfflineProfile {
 export interface SessionData {
   id: string
   ownerId: string
+  annee: number
   typeSite: string
   nomSite: string
   acronyme: string
@@ -411,8 +413,8 @@ function hydratePoint(raw: Record<string, unknown>): PointData {
     ownerId: (raw.ownerId as string) || LEGACY_OWNER_ID,
     sessionId: raw.sessionId as string,
     numero: raw.numero as number,
-    heureDebut: (raw.heureDebut as string | null) ?? null,
-    heureFin: (raw.heureFin as string | null) ?? null,
+    heureDebut: normalizeBelgianISOString(raw.heureDebut as string | null),
+    heureFin: normalizeBelgianISOString(raw.heureFin as string | null),
     nbEspeces: (raw.nbEspeces as number) ?? 0,
     statut: (raw.statut as PointData['statut']) ?? 'non_demarre',
     counts: normalizedCounts,
@@ -440,6 +442,7 @@ function hydrateSession(raw: Record<string, unknown>): SessionData {
   return {
     ...(raw as unknown as SessionData),
     ownerId: (raw.ownerId as string) || LEGACY_OWNER_ID,
+    annee: typeof raw.annee === 'number' ? raw.annee : 1,
     dirty: typeof raw.dirty === 'boolean' ? raw.dirty : !raw.syncedAt,
     lastSyncedRemoteRevision: typeof raw.lastSyncedRemoteRevision === 'number' ? raw.lastSyncedRemoteRevision : null,
     syncError: typeof raw.syncError === 'string' ? raw.syncError : null,

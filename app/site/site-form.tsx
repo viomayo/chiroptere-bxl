@@ -8,33 +8,96 @@ import { SITE_POINTS } from '@/lib/site-points'
 import { useOfflineAuth } from '@/app/components/offline-auth-provider'
 
 const PROTOCOLES = ['Plan d\'eau (2 min)', 'Transect forestier (3 min)'] as const
+const ANNEES = [1, 2, 3] as const
 
-const SITES_BY_PROTOCOLE: Record<string, { nom: string; acronyme: string }[]> = {
-  'Plan d\'eau (2 min)': [
-    { nom: 'Bois de la Cambre (Bruxelles)', acronyme: 'CAM' },
-    { nom: 'Canal Willebroeck - Charleroi', acronyme: 'CNL' },
-    { nom: 'Bois de Laerbeek (Jette)', acronyme: 'LAA'},
-    { nom: 'Marais de Jette', acronyme: 'MDJ' },
-    { nom: 'Moeraske (Evere) / parc Walckiers (Schaerbeek)', acronyme: 'MRK' },
-    { nom: 'Bassin d\'orage de Neerpede (Anderlecht)', acronyme: 'NEE' },
-    { nom: 'Poelbos (Jette)', acronyme: 'POE' },
-    { nom: 'Parc Roi Baudouin phase 1 (Jette)', acronyme: 'RB1' },
-    { nom: 'Parc Roi Baudouin phase 2 (Jette)', acronyme: 'RB2' },
-    { nom: 'Parc Sobieski (Bruxelles)', acronyme: 'SBK' },
-    { nom: 'Bois du Wilder (Berchem-Sainte-Agathe)', acronyme: 'WLR' },
-  ],
-  'Transect forestier (3 min)': [
-    { nom: 'Bois de la Cambre', acronyme: 'CAM' },
-    { nom: 'Damenrust', acronyme: 'DAR' },
-    { nom: 'Chemin de Diependelle', acronyme: 'DPD' },
-    { nom: 'Drève de l\'Infante', acronyme: 'INF' },
-    { nom: 'Parc Malou', acronyme: 'MAL' },
-    { nom: 'Rouge-Cloître', acronyme: 'RCL' },
-    { nom: 'Terrest (Jezus-Eik)', acronyme: 'TRT' },
-    { nom: 'Vuursteen (Silex)', acronyme: 'VUU' },
-    { nom: 'Wollenborre', acronyme: 'WLB' },
-    { nom: 'Parc de Woluwe', acronyme: 'WUP' },
-  ],
+const SITES_BY_ANNEE: Record<number, Record<string, { nom: string; acronyme: string }[]>> = {
+  1: {
+    'Plan d\'eau (2 min)': [
+      { nom: 'Mare aux canards (Watermael-Boitsfort)', acronyme: 'HMC' },
+      { nom: 'Étang des Pêcheries Royales (Watermael-Boitsfort)', acronyme: 'HPR' },
+      { nom: 'Étang Ter Linden (Watermael-Boitsfort)', acronyme: 'HTL' },
+      { nom: 'Parc du Leybeek (Watermael-Boitsfort)', acronyme: 'LEY' },
+      { nom: 'Axa / Royale Belge, grand bassin (Watermael-Boitsfort)', acronyme: 'ROY' },
+      { nom: 'Parc Ten Reuken (Watermael-Boitsfort)', acronyme: 'TEN' },
+      { nom: 'Parc Malou et RN du Struybeek (Woluwe-Saint-Lambert)', acronyme: 'MAL' },
+      { nom: 'Étang Mellaerts, grand (Woluwe-Saint-Pierre)', acronyme: 'MEG' },
+      { nom: 'Étang Mellaerts, petit (Woluwe-Saint-Pierre)', acronyme: 'MEP' },
+      { nom: 'Parc Parmentier (Woluwe-Saint-Pierre)', acronyme: 'PAR' },
+      { nom: 'Parc des Sources (Woluwe-Saint-Lambert)', acronyme: 'SOU' },
+      { nom: 'Parc de Woluwe, étang long (Woluwe-Saint-Pierre)', acronyme: 'WOL' },
+      { nom: 'Parc de Woluwe, étang rond (Woluwe-Saint-Pierre)', acronyme: 'WOR' },
+    ],
+    'Transect forestier (3 min)': [
+      { nom: 'Kauwberg', acronyme: 'KAU' },
+      { nom: 'Kinsendaal', acronyme: 'KIN' },
+      { nom: 'Roze molen / Buysdelle', acronyme: 'BUY' },
+      { nom: 'Plateau Engeland (Uccle)', acronyme: 'ENG' },
+      { nom: 'Verrewinkel', acronyme: 'VER' },
+      { nom: 'Bois du Laerbeek', acronyme: 'LAA' },
+      { nom: 'Bois de Dieleghem', acronyme: 'DGB' },
+      { nom: 'Parc Roi Baudouin, phase 1', acronyme: 'RB1' },
+      { nom: 'Poelbos', acronyme: 'POE' },
+      { nom: 'Moeras de Ganshoren', acronyme: 'GAN' },
+    ],
+  },
+  2: {
+    'Plan d\'eau (2 min)': [
+      { nom: 'Étang du Bergoje', acronyme: 'BER' },
+      { nom: 'Étang du Blankedelle', acronyme: 'BLA' },
+      { nom: 'Étang du Clos des Chênes', acronyme: 'CDC' },
+      { nom: 'Étang des Enfants Noyés', acronyme: 'ENF' },
+      { nom: 'Étang de l\'Ermite, amont (sans île)', acronyme: 'ERM' },
+      { nom: 'Étang de l\'Ermite, aval (avec île)', acronyme: 'ERV' },
+      { nom: 'Étang du Fer à Cheval', acronyme: 'FER' },
+      { nom: 'Kinsendael', acronyme: 'KIN' },
+      { nom: 'Étang du Moulin (Boitsfort)', acronyme: 'MOU' },
+      { nom: 'Étang Sec', acronyme: 'SEC' },
+      { nom: 'Étang du Silex', acronyme: 'SIL' },
+      { nom: 'Étang des 3 Fontaines', acronyme: 'TFO' },
+      { nom: 'Parc Tournay-Solvay', acronyme: 'TOS' },
+      { nom: 'Étang du Plateau Engeland', acronyme: 'ENG' },
+      { nom: 'Étang du Parc de la Sauvagère', acronyme: 'SAU' },
+    ],
+    'Transect forestier (3 min)': [
+      { nom: 'Blankedelle', acronyme: 'BLA' },
+      { nom: 'Bunzingen', acronyme: 'BNZ' },
+      { nom: 'Trois Couleurs', acronyme: 'DKL' },
+      { nom: 'Parc des Sources', acronyme: 'TBN' },
+      { nom: 'Tambour', acronyme: 'TMB' },
+      { nom: 'Grasdelle', acronyme: 'GRA' },
+      { nom: 'Grippendelle', acronyme: 'GIP' },
+      { nom: 'Korporaal', acronyme: 'KOR' },
+      { nom: 'Lindekemaele', acronyme: 'LIN' },
+      { nom: 'Vuilbeek', acronyme: 'VUI' },
+    ],
+  },
+  3: {
+    'Plan d\'eau (2 min)': [
+      { nom: 'Bois de la Cambre (Bruxelles)', acronyme: 'CAM' },
+      { nom: 'Canal Willebroeck - Charleroi', acronyme: 'CNL' },
+      { nom: 'Bois de Laerbeek (Jette)', acronyme: 'LAA'},
+      { nom: 'Marais de Jette', acronyme: 'MDJ' },
+      { nom: 'Moeraske (Evere) / parc Walckiers (Schaerbeek)', acronyme: 'MRK' },
+      { nom: 'Bassin d\'orage de Neerpede (Anderlecht)', acronyme: 'NEE' },
+      { nom: 'Poelbos (Jette)', acronyme: 'POE' },
+      { nom: 'Parc Roi Baudouin phase 1 (Jette)', acronyme: 'RB1' },
+      { nom: 'Parc Roi Baudouin phase 2 (Jette)', acronyme: 'RB2' },
+      { nom: 'Parc Sobieski (Bruxelles)', acronyme: 'SBK' },
+      { nom: 'Bois du Wilder (Berchem-Sainte-Agathe)', acronyme: 'WLR' },
+    ],
+    'Transect forestier (3 min)': [
+      { nom: 'Bois de la Cambre', acronyme: 'CAM' },
+      { nom: 'Damenrust', acronyme: 'DAR' },
+      { nom: 'Chemin de Diependelle', acronyme: 'DPD' },
+      { nom: 'Drève de l\'Infante', acronyme: 'INF' },
+      { nom: 'Parc Malou', acronyme: 'MAL' },
+      { nom: 'Rouge-Cloître', acronyme: 'RCL' },
+      { nom: 'Terrest (Jezus-Eik)', acronyme: 'TRT' },
+      { nom: 'Vuursteen (Silex)', acronyme: 'VUU' },
+      { nom: 'Wollenborre', acronyme: 'WLB' },
+      { nom: 'Parc de Woluwe', acronyme: 'WUP' },
+    ],
+  },
 }
 
 const DETECTEURS = [
@@ -70,6 +133,7 @@ export default function SiteForm() {
 
 function SiteFormForOwner({ compteurPrincipal, ownerId }: { compteurPrincipal: string; ownerId: string }) {
   const router = useRouter()
+  const [annee, setAnnee] = useState<number>(1)
   const [typeSite, setTypeSite] = useState('')
   const [nomSite, setNomSite] = useState('')
   const [acronyme, setAcronyme] = useState('')
@@ -81,6 +145,14 @@ function SiteFormForOwner({ compteurPrincipal, ownerId }: { compteurPrincipal: s
   const [commentaire, setCommentaire] = useState('')
   const [error, setError] = useState('')
 
+  function handleAnneeChange(value: number) {
+    setAnnee(value)
+    setTypeSite('')
+    setNomSite('')
+    setAcronyme('')
+    setNbPointsEcoute('')
+  }
+
   function handleTypeSiteChange(type: string) {
     setTypeSite(type)
     setNomSite('')
@@ -90,7 +162,7 @@ function SiteFormForOwner({ compteurPrincipal, ownerId }: { compteurPrincipal: s
 
   function handleNomSiteChange(nom: string) {
     setNomSite(nom)
-    const sites = SITES_BY_PROTOCOLE[typeSite] ?? []
+    const sites = SITES_BY_ANNEE[annee]?.[typeSite] ?? []
     const site = sites.find((s) => s.nom === nom)
     const acr = site ? site.acronyme : ''
     setAcronyme(acr)
@@ -114,6 +186,7 @@ function SiteFormForOwner({ compteurPrincipal, ownerId }: { compteurPrincipal: s
     const session: SessionData = {
       id: sessionId,
       ownerId,
+      annee,
       typeSite,
       nomSite,
       acronyme,
@@ -177,6 +250,22 @@ function SiteFormForOwner({ compteurPrincipal, ownerId }: { compteurPrincipal: s
 
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium">
+          Année <span className="text-foreground/40">*</span>
+        </label>
+        <select
+          value={annee}
+          onChange={(e) => handleAnneeChange(Number(e.target.value))}
+          required
+          className={inputClass}
+        >
+          {ANNEES.map((n) => (
+            <option key={n} value={n}>Année {n}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium">
           Type de site <span className="text-foreground/40">*</span>
         </label>
         <select
@@ -204,7 +293,7 @@ function SiteFormForOwner({ compteurPrincipal, ownerId }: { compteurPrincipal: s
           className={`${inputClass} disabled:opacity-50 disabled:cursor-not-allowed`}
         >
           <option value="">— Choisir un site —</option>
-          {(SITES_BY_PROTOCOLE[typeSite] ?? []).map((s) => (
+          {(SITES_BY_ANNEE[annee]?.[typeSite] ?? []).map((s) => (
             <option key={s.nom} value={s.nom}>{s.nom}</option>
           ))}
         </select>

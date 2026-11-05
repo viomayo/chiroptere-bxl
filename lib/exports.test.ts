@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { buildSessionExports, csvCell, downloadText, sessionToCSV, sessionToGeoJSON, sessionToJSON, sessionsToCSV, sessionsToGeoJSON, sessionsToJSON, slugify } from './exports'
 import { defaultCounts, type PointData, type SessionData } from './idb'
 
-const session: SessionData = { id: '00000000-0000-0000-0000-000000000001', ownerId: 'user-a', typeSite: 'Étang', nomSite: 'Bois, test', acronyme: 'BT', debutSession: '2026-08-05T20:00:00Z', finSession: '', compteurPrincipal: 'Alice', autresCompteurs: '', nbPointsEcoute: 1, detecteurs: ['D1'], commentaire: '', createdAt: '2026-08-05T20:00:00Z', updatedAt: '2026-08-05T20:00:00Z', syncedAt: null, dirty: true, lastSyncedRemoteRevision: null, syncError: null }
+const session: SessionData = { id: '00000000-0000-0000-0000-000000000001', ownerId: 'user-a', annee: 1, typeSite: 'Étang', nomSite: 'Bois, test', acronyme: 'BT', debutSession: '2026-08-05T20:00:00Z', finSession: '', compteurPrincipal: 'Alice', autresCompteurs: '', nbPointsEcoute: 1, detecteurs: ['D1'], commentaire: '', createdAt: '2026-08-05T20:00:00Z', updatedAt: '2026-08-05T20:00:00Z', syncedAt: null, dirty: true, lastSyncedRemoteRevision: null, syncError: null }
 const point: PointData = { id: 'p1', ownerId: 'user-a', sessionId: session.id, numero: 1, heureDebut: null, heureFin: null, nbEspeces: 0, statut: 'non_demarre', counts: defaultCounts(), localisation: '', commentaire: 'ligne\n2', timerState: null, coordX: 1, coordY: 2, chouetteHulotte: false, updatedAt: session.updatedAt }
 const otherSession: SessionData = { ...session, id: '00000000-0000-0000-0000-000000000002', acronyme: 'PC', nomSite: 'Parc' }
 const otherPoint: PointData = { ...point, id: 'p2', sessionId: otherSession.id, numero: 1 }
