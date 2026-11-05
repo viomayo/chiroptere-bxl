@@ -90,7 +90,7 @@ Le schéma versionné se trouve dans `supabase/migrations/`. Les migrations ajou
 - table `profiles` (nom contrôlé de l'utilisateur, prérempli au premier sign-in, modifiable par son propriétaire et lisible par les superviseurs) ;
 - contraintes uniques et seed espèces idempotent.
 
-Les migrations jusqu'au 14 août 2026 ont été appliquées manuellement au projet distant (`202608060001_owl_call.sql` et `202608140001_profiles.sql`, après `supabase link`, dry-run et vérification du schéma distant). La migration `202611030001_session_annee.sql` est rédigée dans le dépôt et reste à appliquer au distant. Pour une prochaine migration :
+Les migrations jusqu'au 5 novembre 2026 ont été appliquées manuellement au projet distant (`202608060001_owl_call.sql`, `202608140001_profiles.sql`, puis `202611030001_session_annee.sql`, après `supabase link`, dry-run et vérification du schéma distant). Pour une prochaine migration :
 
 ```bash
 supabase start
@@ -121,7 +121,7 @@ La synchronisation automatique ne démarre qu'après confirmation distante de l'
 
 ## Journal
 
-- 2026-11-05 — Campagnes 1/2/3, 932 points prédéfinis (328/285/319), horaires de point en heure belge avec offset, `Murin sp.`/`Oreillard sp.`, champ `annee` persisté et exporté. Migration `202611030001_session_annee.sql` prête, à appliquer au distant.
+- 2026-11-05 — Campagnes 1/2/3, 932 points prédéfinis (328/285/319), horaires de point en heure belge avec offset, `Murin sp.`/`Oreillard sp.`, champ `annee` persisté et exporté. Migration `202611030001_session_annee.sql` appliquée au Supabase distant et vérifiée.
 
 ## Démo et auteurs
 

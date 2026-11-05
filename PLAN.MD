@@ -61,7 +61,7 @@
 - [fait] Exécuter une recette réelle sur iOS Safari et Android installés en PWA (fait le 14 août 2026, version `71dd5d1` déployée sur Vercel, login et usage mobile concluants).
 - [fait] Appliquer manuellement les migrations `202608060001_owl_call.sql` (colonne `chouette_hulotte`) et `202608140001_profiles.sql` (table `profiles`) au Supabase distant (fait le 14 août 2026, avec `supabase link`, dry-run puis push, et vérification du schéma distant : colonne, table `profiles` backfillée, trigger `trg_profiles_on_signup` actif).
 - [fait] Rédiger la migration `202611030001_session_annee.sql` (colonne `annee` sur `sessions`, contrainte 1–3 et RPC `sync_session_snapshot` mise à jour) dans le dépôt.
-- [à faire] Appliquer manuellement `202611030001_session_annee.sql` au Supabase distant après sauvegarde vérifiée et validation du propriétaire.
+- [fait] Appliquer manuellement `202611030001_session_annee.sql` au Supabase distant après sauvegarde vérifiée et validation du propriétaire (fait le 5 novembre 2026 : dry-run, `db push`, puis vérification distante de la colonne `annee`, de la contrainte `sessions_annee_check` et de la RPC `sync_session_snapshot`).
 
 ## Évolutions produit possibles
 
@@ -73,4 +73,4 @@ Les éléments de cette section sont planifiés et ne doivent pas être présent
 
 ## Journal
 
-- 2026-11-05 : livraison de la vague « campagnes & heure belge » — sélection Année 1/2/3, 932 points prédéfinis (328/285/319), horaires de point en heure belge avec offset, `Murin sp.`/`Oreillard sp.`, persistance et export de `annee`, migration `202611030001_session_annee.sql` prête mais non appliquée au distant.
+- 2026-11-05 : livraison de la vague « campagnes & heure belge » — sélection Année 1/2/3, 932 points prédéfinis (328/285/319), horaires de point en heure belge avec offset, `Murin sp.`/`Oreillard sp.`, persistance et export de `annee`. Migration `202611030001_session_annee.sql` appliquée au Supabase distant et vérifiée (colonne, contrainte et RPC).
